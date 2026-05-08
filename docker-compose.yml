@@ -1,0 +1,70 @@
+services:
+
+  client:
+    build:
+      context: ./Client
+    container_name: qstat-client
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - qstat-network
+
+
+  backend:
+    build:
+      context: ./Backend
+    container_name: qstat-api
+    ports:
+      - "8000:8000"
+    environment:
+      - VLLM_BASE_URL=http://vllm:8000/v1
+      - CUDA_VISIBLE_DEVICES=0
+    depends_on:
+      - vllm
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - qstat-network
+
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm
+    ports:
+      - "8001:8000"
+    command: >
+      --model Qwen/Qwen3-14B-AWQ
+      --max-model-len 4096
+      --gpu-memory-utilization 0.85
+      --host 0.0.0.0
+      --port 8000
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - qstat-network
+
+
+
+networks:
+  qstat-network:
+    driver: bridge
