@@ -1,7 +1,5 @@
 <script lang="ts">
-    import { stringify } from "postcss";
     import { marked } from 'marked'
-
 
   let files = $state<FileList | undefined>();
 
@@ -17,9 +15,6 @@
     
      }
     } | null>(null);
-
-
-  let output = $state();
 
   let input_prompt = $state("");
 
@@ -60,6 +55,9 @@
 
 
   async function processPrompt() {
+
+    chatIsGenerating = true;
+
         const response = await fetch(`http://127.0.0.1:8000/askForRecipe?prompt=${encodeURIComponent(input_prompt)}`, {
       method: 'GET',
       headers: {
@@ -71,63 +69,6 @@
     console.log(data.result)
 
     chatOutput = data.result
-    return
-
-
-  }
-
-
-  async function processPromptStream() {
-  const prompt = "Give me a Takoyaki recipe";
-
-  const response = await fetch(
-    `http://127.0.0.1:8000/askForRecipeStream?prompt=${encodeURIComponent(prompt)}`
-  );
-
-  const reader = response.body?.getReader();
-  const decoder = new TextDecoder();
-
-  let result = "";
-
-  while (reader) {
-    const { value, done } = await reader.read();
-
-    if (done) break;
-
-    const chunk = decoder.decode(value, { stream: true });
-    result += chunk;
-
-    console.log(result);
-    chatOutput = result
-    // In Svelte, assign this to a reactive variable:
-    // recipeText = result;
-  }
-}
-
-  async function getTopicsAsync() {
-
-
-    chatIsGenerating = true;
-    const response = await fetch('http://127.0.0.1:8000/topics', {
-      method: 'PUT',
-      headers: {
-        'accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      
-      body: JSON.stringify({
-        'n_neighbours': 5,
-        'n_components': 15,
-        'min_cluster_size': 10,
-        'min_samples': 5
-      })
-    });
-
-
-    const data = await response.json()
-
-    console.log(data)
-    output = data
 
     chatIsGenerating = false;
 
@@ -143,10 +84,7 @@
 
 </div>
 
-<h1 class="text-center ml-1 text-3xl font-bold">Data Analysis Tool</h1>
-
-<button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full" onclick={getTopicsAsync}>Get Topics</button>
-<p class="border-2 p-5 m-5">JSON Output: {output}</p>
+<h1 class="text-center ml-1 text-3xl font-bold">QSTAT</h1>
 
 <label for="many" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full">Upload Audio File</label>
 <input bind:files accept="audio/mpeg, audio/wav" id="many" multiple type="file"/>
@@ -163,11 +101,9 @@
 {#if chatIsGenerating}
   <h1>LOADING CHAT RESPONSE . . .</h1>
 {/if}
-
 <input bind:value={input_prompt} placeholder="Frage nach Rezepten" />
 <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full" onclick={processPrompt}>Send Prompt</button>
-<button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full" onclick={processPromptStream}>Send Prompt - Get streamed result</button>
-<div class="preview">{@html marked(chatOutput)}</div>
+<div class="prose">{@html marked(chatOutput)}</div>
 
 <!--<p class="border-2 p-5 m-5">Transcription Output: {transcriptionResponse?.transcription?.text}</p> -->
 

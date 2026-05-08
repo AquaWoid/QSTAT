@@ -1,21 +1,17 @@
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-print("DEBUG:: STAGE 2 :: FASTAPI IMPORTED ")
 from API.DataModels.model_configs import topic_model_settings
 import tempfile, shutil, os
 
-print("DEBUG:: STAGE 3 :: FASTAPI IMPORTED ")
 import API.SST.speech_recognition as speech_recognition
-import API.SST.speech_recognition
-
 import API.LLM.inference_test as LLM
 
-print("DEBUG:: STAGE 4 :: FASTAPI IMPORTED ")
+
 app = FastAPI()
 
 origins = [
-    "http://localhost:5173"
+    "http://app.localhost"
 ]
 
 app.add_middleware(

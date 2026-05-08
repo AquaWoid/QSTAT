@@ -1,5 +1,19 @@
 services:
 
+  traefik:
+    image: traefik:v3.7
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - qstat-network
+
   client:
     build:
       context: ./Client
@@ -7,9 +21,11 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://api.localhost
     depends_on:
       - backend
+    labels:
+      - "traefik.http.routers.client.rule=Host(`app.${HOSTNAME}`)"
     networks:
       - qstat-network
 
@@ -23,10 +39,13 @@ services:
     environment:
       - VLLM_BASE_URL=http://vllm:8000/v1
       - CUDA_VISIBLE_DEVICES=0
+    labels:
+      - "traefik.http.routers.backend.rule=Host(`api.${HOSTNAME}`)"
     depends_on:
       - vllm
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
+      - ~/.cache/whisper:/root/.cache/whisper
     deploy:
       resources:
         reservations:

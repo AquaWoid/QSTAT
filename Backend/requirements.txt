@@ -2,10 +2,5 @@ pandas
 numpy
 transformers
 accelerate
-openai-whisper #ffmpeg Linux Package needed for this library 
+openai-whisper #ffmpeg Linux Package needed too
 fastapi[standard]
-
-#torch 
-#torchvision 
-#--extra-index-url https://download.pytorch.org/whl/cu126
-
