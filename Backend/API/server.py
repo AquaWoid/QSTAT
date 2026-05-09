@@ -1,12 +1,12 @@
 from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from API.DataModels.model_configs import topic_model_settings
+
 import tempfile, shutil, os
 
 import API.SST.speech_recognition as speech_recognition
 import API.LLM.inference_test as LLM
-
 
 app = FastAPI()
 
@@ -22,6 +22,9 @@ app.add_middleware(
     allow_headers=["*"]    
 )
 
+@app.post("/chat")
+def chat(payload: dict):
+    return LLM.resolve_prompt_realtime(payload)
 
 @app.get("/")
 def read_root():
@@ -30,7 +33,12 @@ def read_root():
 
 @app.get("/askForRecipe")
 async def receive_prompt(prompt: str):
-    return {"result" : LLM.resolve_prompt(prompt)}
+    try:
+        result = await LLM.resolve_prompt(prompt)
+        return {"result" : result }
+    except Exception as e:
+        return {"Error: " : f"Couldn't Resolve Prompt. Error Code: {e}"}
+
 
 @app.post("/uploadfile/")
 async def create_upload_file(file: UploadFile = File(...)):
