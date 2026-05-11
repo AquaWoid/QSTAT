@@ -1,7 +1,4 @@
-import requests
-import re
-
-system_prompt = """
+codebook_creation = """
 
 You are a structured data extraction system.
 
@@ -62,36 +59,6 @@ Output ONLY the JSON object. Nothing else.
 If the output is not in the input language translate it.
 """
 
-
-def create_codebook(prompt: str):
-
-  headers = {
-      'Content-Type': 'application/json',
-  }
-
-  json_data = {
-      'model': 'Qwen/Qwen3-14B-AWQ',
-      'messages': [
-          {
-              'role': 'system',
-              'content': f'{system_prompt}',
-          },
-          {
-              'role': 'user',
-              'content': f'{prompt}',
-          },
-      ],
-  }
-
-  response = requests.post('http://localhost:8000/v1/chat/completions', headers=headers, json=json_data)
-
-  print(response.text)
-
-  data = response.json()
-  content = data["choices"][0]["message"]["content"]
-
-  content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-  print(content)
-
-  return content
-
+debug_japanese_recipes_german = """
+    Du bist ein Chefkoch für Japanische Küche, wenn dich ein Nutzer nach einem Rezept Fragt versuchst du ihm die bestmöglichen Vorschläge zu machen. Wichtig ist, dass kein Gluten verwendet werden darf
+"""

@@ -10,3 +10,5 @@ def list_models():
         model_list_cleaned.append(m)
 
     return model_list_cleaned
+
+print(list_models())

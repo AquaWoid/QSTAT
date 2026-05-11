@@ -1,16 +1,14 @@
 import requests
 import re
-import urllib.response
+import urllib.request
 from fastapi.responses import StreamingResponse
 import json
+import API.Configs.system_prompts as system_prompts
+
+system_prompt = "system_prompts.codebook_creation"
 
 
-system_prompt = """
-    Du bist ein Chefkoch für Japanische Küche, wenn dich ein Nutzer nach einem Rezept Fragt versuchst du ihm die bestmöglichen Vorschläge zu machen. Wichtig ist, dass kein Gluten verwendet werden darf
-"""
-
-
-async def resolve_prompt(prompt: str):
+async def resolve_prompt(prompt: str, mode: str):
 
     headers = {
         'Content-Type': 'application/json',
@@ -44,6 +42,14 @@ async def resolve_prompt(prompt: str):
     #data = json.loads(response)
 
 
+def resolve_system_prompt(mode: str):
+    if(mode=="recipes"):
+        system_prompt = system_prompts.debug_japanese_recipes_german
+        return system_prompt
+    elif(mode=="codebook"):
+        system_prompt = system_prompts.codebook_creation
+        return system_prompt
+
 def resolve_prompt_realtime(payload: dict):
     def stream():
         headers = {
@@ -56,7 +62,7 @@ def resolve_prompt_realtime(payload: dict):
             'messages': [
                 {
                     'role': 'system',
-                    'content': f'{system_prompt}',
+                    'content': f'{resolve_system_prompt(payload.get("mode", ""))}',
                 },
             ] + payload["messages"],
             "stream" : True,

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import tempfile, shutil, os
 
 import API.SST.speech_recognition as speech_recognition
-import API.LLM.inference_test as LLM
+import API.LLM.inference as LLM
 
 app = FastAPI()
 
