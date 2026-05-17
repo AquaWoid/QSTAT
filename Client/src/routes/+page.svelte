@@ -33,7 +33,7 @@
       body: JSON.stringify({
         messages: [{ role: 'user', content: input_prompt }],
         thinking : enableThinking,
-        mode : "recipes"
+        mode : selectedMode
       })
     });
 
@@ -125,7 +125,7 @@
     </div>
 
     <div class="grid col-2">
-      <textarea class="border-2 w-100 h-100 row-1 " placeholder="Frage nach Rezepten" bind:value={input_prompt}></textarea>
+      <textarea class="border-2 w-100 h-20 row-1 " placeholder="Frage nach Rezepten" bind:value={input_prompt}></textarea>
       <button class="mt-2 w-50  row-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full" onclick={send}>Send</button>
       <label>
       <input class="row-3" type="checkbox" bind:checked={enableThinking}/>

@@ -1,2 +1,4 @@
 venv
 API/__pycache__
+UserData/Users/*
+!UserData/Users/.gitkeep

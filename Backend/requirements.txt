@@ -1,8 +1,31 @@
+#Data Handling and file parsing
 pandas
 numpy
+#pydf #python-docx - Using docling for now might reintroduce them later
+docling
+
+#ML
 transformers
 accelerate
 openai-whisper 
 faster-whisper
-pyannote.audio
+#pyannote.audio - TODO, solve version conflict with pytorch docker image 
+
+#API
 fastapi[standard]
+
+#RAG
+chromadb
+langchain-text-splitters
+sentence-transformers
+#pgvector - Using chromadb for now might be reintroduced later
+
+#LLM Pipeline
+tiktoken
+#rank-bm25
+httpx
+
+#DB - Will be reimplemented when Postgres is used
+#sqlalchemy
+#alembic
+#asyncpg

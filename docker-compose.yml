@@ -38,18 +38,22 @@ services:
       - "8000:8000"
     environment:
       - VLLM_BASE_URL=http://vllm:8000/v1
-      - DATABASE_URL=postgresql://${PG_USER}:${PG_PWD}@postgresql:5432/${PG_DB}
+#      - DATABASE_URL=postgresql+asyncpg://${PG_USER}:${PG_PWD}@postgresql:5432/${PG_DB}
       - CUDA_VISIBLE_DEVICES=0
+      - CHROMA_URL=http://chroma:8000
     labels:
       - "traefik.http.routers.backend.rule=Host(`api.${HOSTNAME}`)"
     depends_on:
-      postgresql: 
-        condition: service_healthy
+ #     postgresql: 
+ #       condition: service_healthy
       vllm: 
         condition: service_started
+      chroma:
+        condition: service_started    
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
       - ~/.cache/whisper:/root/.cache/whisper
+      - ~/.cache/chroma:/root/.cache/chroma
     deploy:
       resources:
         reservations:
@@ -57,6 +61,14 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    networks:
+      - qstat-network
+
+
+  chroma:
+    image: chromadb/chroma
+    volumes:
+      - chroma-data:/data
     networks:
       - qstat-network
 
@@ -86,29 +98,31 @@ services:
     networks:
       - qstat-network
 
-
-  postgresql:
-    image: pgvector/pgvector:0.8.2-pg18-bookworm
-    container_name: postgres_qstat
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${PG_DB}
-      POSTGRES_USER: ${PG_USER}
-      POSTGRES_PASSWORD: ${PG_PWD}
-    volumes:
-      - postgres-data:/var/lib/postgresql/18/data
-      - ./Docker/postgres/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - qstat-network
+# Postgres not in use for now, will be added back later
+#  postgresql:
+#    image: pgvector/pgvector:0.8.2-pg18-bookworm
+#    container_name: postgres_qstat
+#    restart: unless-stopped
+#    environment:
+#      POSTGRES_DB: ${PG_DB}
+#      POSTGRES_USER: ${PG_USER}
+#      POSTGRES_PASSWORD: ${PG_PWD}
+#    volumes:
+#      - postgres-data:/var/lib/postgresql/18/data
+#      - ./Docker/postgres/init:/docker-entrypoint-initdb.d:ro
+#    healthcheck:
+#      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
+#    networks:
+#      - qstat-network
 
 
 volumes:
-  postgres-data:
+  chroma-data:
+#  postgres-data:
+
     
 
 

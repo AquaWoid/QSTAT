@@ -7,6 +7,7 @@ import tempfile, shutil, os
 
 import API.SST.speech_recognition as speech_recognition
 import API.LLM.inference as LLM
+import RAG.controller as RAG_Controller
 
 app = FastAPI()
 
@@ -25,6 +26,18 @@ app.add_middleware(
 @app.post("/chat")
 def chat(payload: dict):
     return LLM.resolve_prompt_realtime(payload)
+
+
+@app.post("/chatContext")
+def chat(payload: dict):
+    return LLM.resolve_prompt_with_context("testuser", "software", "what is Atrain?")
+
+
+@app.post("/store_vector")
+def store():
+    return RAG_Controller.test_store()
+    
+
 
 @app.get("/")
 def read_root():

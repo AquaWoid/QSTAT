@@ -4,11 +4,12 @@ import urllib.request
 from fastapi.responses import StreamingResponse
 import json
 import API.Configs.system_prompts as system_prompts
+import RAG.retrieval as RAG
 
 system_prompt = "system_prompts.codebook_creation"
 
 
-async def resolve_prompt(prompt: str, mode: str):
+async def resolve_prompt(prompt: str):
 
     headers = {
         'Content-Type': 'application/json',
@@ -49,6 +50,48 @@ def resolve_system_prompt(mode: str):
     elif(mode=="codebook"):
         system_prompt = system_prompts.codebook_creation
         return system_prompt
+    elif(mode=="RAG"):
+        system_prompt = RAG.retrieve_context("testuser")
+
+def resolve_prompt_with_context(user_id : str, subject : str, query : str, enable_thinking : bool = False):
+    def stream():
+        headers = {
+            'Content-Type': 'application/json',
+            "Accept" : "text/event-stream"
+        }
+
+        json_data = {
+            'model': 'Qwen/Qwen3-14B-AWQ',
+            'messages': RAG.retrieve_context(user_id, subject, query),
+            "stream" : True,
+            "chat_template_kwargs": {
+                "enable_thinking": enable_thinking
+            }
+        }
+
+        data = json.dumps(json_data).encode("utf-8")
+
+        request = urllib.request.Request(
+           "http://vllm:8000/v1/chat/completions",
+           data=data,
+           method="POST",
+           headers=headers
+        )
+
+        with urllib.request.urlopen(request, timeout=120) as response:
+            while True:
+                chunk = response.read(1024)
+                if not chunk:
+                    break
+
+                yield chunk
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream"
+    )
+
+
 
 def resolve_prompt_realtime(payload: dict):
     def stream():
