@@ -2,3 +2,5 @@ venv
 API/__pycache__
 UserData/Users/*
 !UserData/Users/.gitkeep
+API/LLM/__pycache__
+API/SST/__pycache__
