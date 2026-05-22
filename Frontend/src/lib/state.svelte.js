@@ -93,13 +93,11 @@ function createState() {
     get messages()     { return messages; },
     pushMessage(m)     { messages = [...messages, m]; },
     clearMessages()    { messages = []; },
-    /** Append cite IDs to the last assistant message (called when stream ends). */
-    sealLastMessage(citeIds) {
-      if (!messages.length) return;
-      const last = messages[messages.length - 1];
-      if (last.role === 'assistant') {
-        messages = [...messages.slice(0, -1), { ...last, citeIds }];
-      }
+    /** Save streamed content + cites to a specific message, mark it done. */
+    finalizeMessage(id, content, citeIds) {
+      messages = messages.map((m) =>
+        m.id === id ? { ...m, content, citeIds, streaming: false } : m
+      );
     },
 
     // ── Toasts ─────────────────────────────────────────────────────────────

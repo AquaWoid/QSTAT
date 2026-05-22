@@ -24,7 +24,7 @@ def stream_chat_qualscope(payload: dict):
     rag_cfg = payload.get("rag", {"on": False, "scope": "all"})
 
     cite_id = 100  # start well above seed CITES (1-9) to avoid collisions
-    context_parts = []
+    retrieved_chunks = []
 
     # RAG retrieval
     if rag_cfg.get("on") and messages:
@@ -45,19 +45,26 @@ def stream_chat_qualscope(payload: dict):
                     },
                 }
                 yield f"data: {json.dumps(event)}\n\n"
-                context_parts.append(chunk["preview"])
+                retrieved_chunks.append({"id": cite_id, **chunk})
                 cite_id += 1
         except Exception:
             pass
 
-    # Build system prompt
+    # Build system prompt — include numbered sources so LLM can cite them inline
     sys_content = (
         "You are QualScope, an AI assistant for qualitative researchers. "
         "Help analyse interview transcripts and research documents with precision. "
-        "When you reference specific passages use [^N] notation matching the citation IDs provided."
+        "Format responses in markdown. "
     )
-    if context_parts:
-        sys_content += "\n\nRelevant context retrieved from the corpus:\n\n" + "\n\n---\n\n".join(context_parts)
+    if retrieved_chunks:
+        source_block = "\n\n".join(
+            f"[^{c['id']}] **{c['file']}** (p.{c['page']}, relevance {c['score']:.2f}):\n{c['preview']}"
+            for c in retrieved_chunks
+        )
+        sys_content += (
+            "\n\nWhen referencing the sources below, use [^N] inline notation "
+            "(e.g. [^100]). Available sources:\n\n" + source_block
+        )
 
     full_messages = [{"role": "system", "content": sys_content}] + messages
 
@@ -111,11 +118,13 @@ def suggest_codes(transcript_text: str, existing_names: list) -> list:
     existing_str = ", ".join(existing_names[:40]) if existing_names else "none"
     prompt = (
         f"Transcript excerpt:\n{transcript_text}\n\n"
-        f"Existing codebook entries: {existing_str}\n\n"
-        "Suggest 3-5 new qualitative codes not already in the list. "
-        "Return ONLY a JSON array, no other text:\n"
-        '[{"name":"Code Name","desc":"Brief definition","color":"1"}]\n'
-        "Colors must be strings from 1 to 6. Spread them across colors."
+        f"Existing top-level code categories: {existing_str}\n\n"
+        "Suggest 3-5 NEW top-level qualitative code categories (themes/dimensions) "
+        "not already in the list. These are parent categories, not sub-codes. "
+        "Return ONLY a valid JSON array, no other text:\n"
+        '[{"name":"Category Name","desc":"Brief analytical definition","color":"1"}]\n'
+        "Colors are strings 1-6; pick distinct colors not used by existing categories. "
+        "No trailing commas, no explanation."
     )
 
     try:

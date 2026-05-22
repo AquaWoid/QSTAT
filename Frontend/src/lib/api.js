@@ -106,6 +106,16 @@ export async function deleteCode(id) {
   return res.json();
 }
 
+export async function updateTranscript(fileId, turns) {
+  const res = await fetch(`/api/files/${fileId}/transcript`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ turns })
+  });
+  if (!res.ok) throw new Error(`transcript update failed: ${res.status}`);
+  return res.json();
+}
+
 export async function suggestCodes(transcriptId, existing) {
   const res = await fetch('/api/codebook', {
     method: 'POST',

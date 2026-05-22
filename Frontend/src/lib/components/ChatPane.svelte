@@ -3,74 +3,69 @@
   import Icon from '$lib/Icon.svelte';
   import Message from './Message.svelte';
   import MessageStream from './MessageStream.svelte';
+  import Citation from './Citation.svelte';
+  import SourcesUsed from './SourcesUsed.svelte';
   import { MODELS } from '$lib/data.js';
   import { app } from '$lib/state.svelte.js';
+  import { parseBlocks, inlineHtml } from '$lib/markdown.js';
 
   let model = $state(MODELS[0]);
   let picker = $state(false);
   let input = $state('');
   let ragOn = $state(true);
   let ragScope = $state('all');
-  let streaming = $state(false);
+  /** @type {string | null} ID of the message currently being streamed */
+  let streamingId = $state(null);
   /** @type {HTMLDivElement} */
   let bodyEl;
+
+  let isStreaming = $derived(streamingId !== null);
 
   const SCOPES = { all: 'transcript', transcript: 'selection', selection: 'all' };
   function cycleScope() { ragScope = SCOPES[ragScope]; }
 
   function scrollBottom() {
-    tick().then(() => {
-      if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight;
-    });
+    tick().then(() => { if (bodyEl) bodyEl.scrollTop = bodyEl.scrollHeight; });
   }
 
   async function send() {
     const text = input.trim();
-    if (!text || streaming) return;
+    if (!text || isStreaming) return;
 
     input = '';
-    streaming = true;
-
     const ts = new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
-    const uid = `u_${Date.now()}`;
 
-    app.pushMessage({ role: 'user', content: text, id: uid, ts });
-    // Placeholder for the assistant turn — MessageStream will fill it in
+    app.pushMessage({ role: 'user', content: text, id: `u_${Date.now()}`, ts });
+
     const aid = `a_${Date.now()}`;
     app.pushMessage({ role: 'assistant', content: '', id: aid, ts, streaming: true });
+    streamingId = aid;
 
     scrollBottom();
   }
 
-  function onStreamDone(citeIds) {
-    streaming = false;
-    app.sealLastMessage(citeIds);
+  function onStreamDone(citeIds, finalText) {
+    app.finalizeMessage(streamingId, finalText, citeIds);
+    streamingId = null;
     scrollBottom();
   }
 
   function onKeydown(e) {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault();
-      send();
-    }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); send(); }
   }
 
   function newThread() {
     app.clearMessages();
-    streaming = false;
+    streamingId = null;
   }
 
-  // Build the message list to pass to MessageStream for the current streaming turn
+  // Messages to pass to the live stream — everything before the streaming placeholder.
   let streamMessages = $derived.by(() => {
+    if (!streamingId) return [];
     const msgs = app.messages;
-    if (!msgs.length) return [];
-    // Find the last assistant placeholder and pass everything before it
-    const lastAssistIdx = msgs.map((m) => m.role).lastIndexOf('assistant');
-    if (lastAssistIdx <= 0) return [];
-    return msgs
-      .slice(0, lastAssistIdx)
-      .filter((m) => !m.streaming)
-      .map((m) => ({ role: m.role, content: m.content }));
+    const idx = msgs.findIndex((m) => m.id === streamingId);
+    if (idx <= 0) return [];
+    return msgs.slice(0, idx).map((m) => ({ role: m.role, content: m.content }));
   });
 </script>
 
@@ -132,7 +127,7 @@
           <Message role="user" who="RM" ts={msg.ts}>
             {msg.content}
           </Message>
-        {:else if msg.streaming && streaming}
+        {:else if msg.id === streamingId}
           <Message role="assistant" who="QS" ts={msg.ts} model={model.name}>
             <MessageStream
               messages={streamMessages}
@@ -141,9 +136,26 @@
               onDone={onStreamDone}
             />
           </Message>
-        {:else if !msg.streaming}
+        {:else}
           <Message role="assistant" who="QS" ts={msg.ts} model={model.name}>
-            <p>{msg.content || '—'}</p>
+            {#each parseBlocks(msg.content || '') as block}
+              {#if block.kind === 'h3'}
+                <h3>{#each block.parts as p}{#if p.kind === 'cite'}<Citation id={p.id} />{:else}{@html inlineHtml(p.value)}{/if}{/each}</h3>
+              {:else if block.kind === 'h4'}
+                <h4>{#each block.parts as p}{#if p.kind === 'cite'}<Citation id={p.id} />{:else}{@html inlineHtml(p.value)}{/if}{/each}</h4>
+              {:else if block.kind === 'ul'}
+                <ul>{#each block.items as item}<li>{#each item as p}{#if p.kind === 'cite'}<Citation id={p.id} />{:else}{@html inlineHtml(p.value)}{/if}{/each}</li>{/each}</ul>
+              {:else if block.kind === 'ol'}
+                <ol>{#each block.items as item}<li>{#each item as p}{#if p.kind === 'cite'}<Citation id={p.id} />{:else}{@html inlineHtml(p.value)}{/if}{/each}</li>{/each}</ol>
+              {:else if block.kind === 'bq'}
+                <blockquote>{#each block.parts as p}{#if p.kind === 'cite'}<Citation id={p.id} />{:else}{@html inlineHtml(p.value)}{/if}{/each}</blockquote>
+              {:else}
+                <p>{#each block.parts as p}{#if p.kind === 'cite'}<Citation id={p.id} />{:else}{@html inlineHtml(p.value)}{/if}{/each}</p>
+              {/if}
+            {/each}
+            {#if msg.citeIds?.length}
+              <SourcesUsed cites={msg.citeIds} />
+            {/if}
           </Message>
         {/if}
       {/each}
@@ -181,7 +193,7 @@
         bind:value={input}
         rows="2"
         onkeydown={onKeydown}
-        disabled={streaming}
+        disabled={isStreaming}
       ></textarea>
       <div class="row">
         <div class="slash">
@@ -190,8 +202,8 @@
           <span class="cmd">/cite</span>
           <span class="cmd">/contradict</span>
         </div>
-        <button class="send" onclick={send} disabled={streaming}>
-          {streaming ? 'streaming…' : 'send'} <span class="k">⌘↵</span>
+        <button class="send" onclick={send} disabled={isStreaming}>
+          {isStreaming ? 'streaming…' : 'send'} <span class="k">⌘↵</span>
         </button>
       </div>
     </div>

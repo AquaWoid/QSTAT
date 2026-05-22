@@ -1,8 +1,8 @@
 <script>
   import { onMount } from 'svelte';
 
-  /** @type {{ codebook: any[], pos: { x: number, y: number }, onclose: () => void }} */
-  let { codebook, pos, onclose } = $props();
+  /** @type {{ codebook: any[], pos: { x: number, y: number }, onclose: () => void, onapply?: (id: string) => void, onnewcode?: () => void, onsuggest?: () => void }} */
+  let { codebook, pos, onclose, onapply, onnewcode, onsuggest } = $props();
 
   let menu = $state();
 
@@ -30,15 +30,21 @@
 >
   <div class="hd">Apply code</div>
   {#each top as c, i}
-    <div class="item" onclick={onclose} role="button" tabindex="0" onkeydown={onclose}>
+    <div
+      class="item"
+      onclick={() => { onapply?.(c.id); onclose(); }}
+      role="button"
+      tabindex="0"
+      onkeydown={(e) => e.key === 'Enter' && (onapply?.(c.id), onclose())}
+    >
       <span class="sw" style="--c: var(--code-{c.color})"></span>
       <span>{c.name} <span style="color: var(--ink-4); font-size: 10px;">· {c.parent}</span></span>
       <span class="kbd">{i + 1}</span>
     </div>
   {/each}
   <div class="sep"></div>
-  <div class="new" onclick={onclose} role="button" tabindex="0" onkeydown={onclose}>New code from selection…</div>
-  <div class="new" onclick={onclose} role="button" tabindex="0" onkeydown={onclose} style="color: var(--accent);">
+  <div class="new" onclick={() => onnewcode?.()} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && onnewcode?.()}>New code from selection…</div>
+  <div class="new" onclick={() => onsuggest?.()} role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && onsuggest?.()} style="color: var(--accent);">
     <span style="width:14px; text-align:center;">✦</span>
     Suggest with LLM
   </div>

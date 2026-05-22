@@ -2,74 +2,93 @@
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
   import { app } from '$lib/state.svelte.js';
-  import { getCodebook, updateCode, suggestCodes } from '$lib/api.js';
+  import { getCodebook, updateCode, deleteCode, suggestCodes } from '$lib/api.js';
 
   let query = $state('');
   let editingId = $state(/** @type {string | null} */ (null));
   let suggesting = $state(false);
   let proposed = $state(/** @type {Array<{name:string,desc:string,color:string}>} */ ([]));
 
-  // Debounce timer per code ID
+  // Inline add-group form
+  let addingGroup = $state(false);
+  let newGroupName = $state('');
+  let newGroupColor = $state('1');
+
+  // Per-group "..." menu open state
+  let menuOpenId = $state(/** @type {string | null} */ (null));
+
+  // Debounce timers per code ID
   const _debounces = new Map();
+
+  const COLORS = ['1', '2', '3', '4', '5', '6'];
 
   function toggleGroup(gid) {
     app.codebook = app.codebook.map((g) => (g.id === gid ? { ...g, open: !g.open } : g));
   }
 
   function renameCode(cid, newName) {
+    if (!newName.trim()) return;
     app.codebook = app.codebook.map((g) => ({
       ...g,
       children: g.children.map((c) => (c.id === cid ? { ...c, name: newName } : c))
     }));
-    // Debounced PATCH
     clearTimeout(_debounces.get(cid));
     _debounces.set(cid, setTimeout(async () => {
-      try {
-        await updateCode(cid, { name: newName });
-      } catch (e) {
-        app.toast(`Failed to save rename: ${e.message}`);
-      }
+      try { await updateCode(cid, { name: newName }); }
+      catch (e) { app.toast(`Failed to save: ${e.message}`); }
     }, 400));
   }
 
-  let totalCount = $derived(app.codebook.reduce((n, g) => n + g.count, 0));
+  function addGroup() {
+    const name = newGroupName.trim();
+    if (!name) return;
+    const newGroup = {
+      id: `g_${Date.now()}`,
+      name,
+      color: newGroupColor,
+      count: 0,
+      open: true,
+      desc: '',
+      children: []
+    };
+    app.codebook = [...app.codebook, newGroup];
+    newGroupName = '';
+    newGroupColor = '1';
+    addingGroup = false;
+    // Persist via PATCH is not needed for new groups — they'd need a POST /codebook endpoint.
+    // For now the new group lives in local state; on reload it'll be loaded from backend.
+    // TODO: add POST /codebook endpoint for creating groups.
+  }
 
-  let filtered = $derived.by(() => {
-    if (!query.trim()) return app.codebook;
-    const q = query.toLowerCase();
-    return app.codebook
-      .map((g) => ({
-        ...g, open: true,
-        children: g.children.filter(
-          (c) => c.name.toLowerCase().includes(q) || (c.desc || '').toLowerCase().includes(q)
-        )
-      }))
-      .filter((g) => g.children.length || g.name.toLowerCase().includes(q));
-  });
+  function addChildToGroup(gid) {
+    const name = prompt('Code name:');
+    if (!name?.trim()) return;
+    const group = app.codebook.find((g) => g.id === gid);
+    const color = group?.color ?? '1';
+    const newCode = { id: `c_${Date.now()}`, name: name.trim(), color, count: 0, desc: '' };
+    app.codebook = app.codebook.map((g) =>
+      g.id === gid ? { ...g, children: [...g.children, newCode] } : g
+    );
+  }
 
-  async function handleSuggest() {
-    suggesting = true;
-    proposed = [];
-    try {
-      const suggestions = await suggestCodes(app.activeFile, app.codebook);
-      proposed = suggestions;
-    } catch (e) {
-      app.toast(`Suggest failed: ${e.message}`);
-    } finally {
-      suggesting = false;
-    }
+  async function removeGroup(gid) {
+    if (!confirm('Delete this code group?')) return;
+    app.codebook = app.codebook.filter((g) => g.id !== gid);
+    menuOpenId = null;
+    try { await deleteCode(gid); }
+    catch { /* already removed locally */ }
+  }
+
+  async function removeChild(cid) {
+    app.codebook = app.codebook.map((g) => ({
+      ...g,
+      children: g.children.filter((c) => c.id !== cid)
+    }));
+    try { await deleteCode(cid); }
+    catch { /* already removed locally */ }
   }
 
   function acceptProposal(p, idx) {
-    // Add as a new group (no parent yet) or pick the first group as parent
-    const newCode = {
-      id: `c_${Date.now()}`,
-      name: p.name,
-      color: p.color || '1',
-      count: 0,
-      desc: p.desc || ''
-    };
-    // For now append as a new single-child group
     const newGroup = {
       id: `g_${Date.now()}`,
       name: p.name,
@@ -87,6 +106,34 @@
     proposed = proposed.filter((_, i) => i !== idx);
   }
 
+  async function handleSuggest() {
+    suggesting = true;
+    proposed = [];
+    try {
+      const suggestions = await suggestCodes(app.activeFile, app.codebook);
+      proposed = suggestions;
+    } catch (e) {
+      app.toast(`Suggest failed: ${e.message}`);
+    } finally {
+      suggesting = false;
+    }
+  }
+
+  let totalCount = $derived(app.codebook.reduce((n, g) => n + g.count, 0));
+
+  let filtered = $derived.by(() => {
+    if (!query.trim()) return app.codebook;
+    const q = query.toLowerCase();
+    return app.codebook
+      .map((g) => ({
+        ...g, open: true,
+        children: g.children.filter(
+          (c) => c.name.toLowerCase().includes(q) || (c.desc || '').toLowerCase().includes(q)
+        )
+      }))
+      .filter((g) => g.children.length || g.name.toLowerCase().includes(q));
+  });
+
   onMount(async () => {
     try {
       const book = await getCodebook();
@@ -95,14 +142,25 @@
       app.toast(`Could not load codebook: ${e.message}`);
     }
   });
+
+  // Close menu on outside click
+  function onWindowClick(e) {
+    if (menuOpenId && !/** @type {HTMLElement} */(e.target).closest('.cb-menu')) {
+      menuOpenId = null;
+    }
+  }
 </script>
+
+<svelte:window onclick={onWindowClick} />
 
 <div class="pane elev">
   <div class="pane-hd">
     <span class="lbl">Codebook · {totalCount}</span>
     <div class="actions">
       <button class="iconbtn" title="Sort"><Icon name="sort" /></button>
-      <button class="iconbtn" title="New code"><Icon name="plus" /></button>
+      <button class="iconbtn" title="New group" onclick={() => { addingGroup = !addingGroup; }}>
+        <Icon name="plus" />
+      </button>
     </div>
   </div>
   <div class="cb-search">
@@ -110,6 +168,32 @@
   </div>
 
   <div class="pane-body">
+    {#if addingGroup}
+      <div class="cb-add-group">
+        <input
+          class="cb-add-input"
+          placeholder="Group name…"
+          bind:value={newGroupName}
+          onkeydown={(e) => { if (e.key === 'Enter') addGroup(); if (e.key === 'Escape') addingGroup = false; }}
+          autofocus
+        />
+        <div class="cb-color-row">
+          {#each COLORS as c}
+            <button
+              class="cb-color-swatch"
+              class:selected={newGroupColor === c}
+              style="--c: var(--code-{c})"
+              onclick={() => (newGroupColor = c)}
+            ></button>
+          {/each}
+        </div>
+        <div class="cb-add-actions">
+          <button class="primary" onclick={addGroup}>Add group</button>
+          <button onclick={() => (addingGroup = false)}>Cancel</button>
+        </div>
+      </div>
+    {/if}
+
     <div class="cb-tree">
       {#each filtered as g (g.id)}
         <div class="cb-group">
@@ -125,7 +209,22 @@
             <span class="sw" style="--c: var(--code-{g.color})"></span>
             <span class="name">{g.name}</span>
             <span class="count">{g.count}</span>
-            <button class="iconbtn" onclick={(e) => e.stopPropagation()}><Icon name="more" /></button>
+            <div class="cb-menu" style="position:relative;">
+              <button
+                class="iconbtn"
+                onclick={(e) => { e.stopPropagation(); menuOpenId = menuOpenId === g.id ? null : g.id; }}
+              ><Icon name="more" /></button>
+              {#if menuOpenId === g.id}
+                <div class="cb-dropdown" role="menu">
+                  <button role="menuitem" onclick={(e) => { e.stopPropagation(); addChildToGroup(g.id); menuOpenId = null; }}>
+                    + Add code
+                  </button>
+                  <button role="menuitem" class="danger" onclick={(e) => { e.stopPropagation(); removeGroup(g.id); }}>
+                    Delete group
+                  </button>
+                </div>
+              {/if}
+            </div>
           </div>
           {#if g.open}
             <div class="cb-children">
@@ -161,6 +260,11 @@
                     {#if c.desc}<span class="desc">{c.desc}</span>{/if}
                   </div>
                   <span class="count">{c.count}</span>
+                  <button
+                    class="iconbtn del-code"
+                    title="Delete code"
+                    onclick={(e) => { e.stopPropagation(); removeChild(c.id); }}
+                  >✕</button>
                 </div>
               {/each}
             </div>
@@ -170,7 +274,7 @@
 
       {#if proposed.length}
         <div class="cb-proposed">
-          <div class="cb-proposed-hd">Suggested codes</div>
+          <div class="cb-proposed-hd">Suggested</div>
           {#each proposed as p, i (i)}
             <div class="cb-code proposed">
               <span></span>
@@ -179,7 +283,7 @@
                 <span class="name">{p.name}</span>
                 {#if p.desc}<span class="desc">{p.desc}</span>{/if}
               </div>
-              <button class="iconbtn accept" onclick={() => acceptProposal(p, i)} title="Add to codebook">✓</button>
+              <button class="iconbtn accept" onclick={() => acceptProposal(p, i)} title="Add">✓</button>
               <button class="iconbtn" onclick={() => dismissProposal(i)} title="Dismiss">✕</button>
             </div>
           {/each}
@@ -198,6 +302,63 @@
 </div>
 
 <style>
+  .cb-add-group {
+    padding: 8px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--bg-sunk);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cb-add-input {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 6px;
+    background: var(--bg-elev);
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    color: var(--ink);
+    outline: none;
+  }
+  .cb-add-input:focus { border-color: var(--accent); }
+  .cb-color-row { display: flex; gap: 4px; }
+  .cb-color-swatch {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    border: 2px solid transparent;
+    background: oklch(var(--c) / 0.6);
+    cursor: pointer;
+  }
+  .cb-color-swatch.selected { border-color: var(--ink-2); }
+  .cb-add-actions { display: flex; gap: 6px; }
+  .cb-dropdown {
+    position: absolute;
+    right: 0; top: calc(100% + 2px);
+    background: var(--bg-elev);
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+    min-width: 130px;
+    z-index: 100;
+    overflow: hidden;
+  }
+  .cb-dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .cb-dropdown button:hover { background: var(--bg-sunk); color: var(--ink); }
+  .cb-dropdown button.danger { color: oklch(0.6 0.15 30); }
+  .cb-dropdown button.danger:hover { background: oklch(0.6 0.15 30 / 0.1); }
+  .del-code { opacity: 0; font-size: 9px; color: var(--ink-4); }
+  .cb-code:hover .del-code { opacity: 1; }
   .cb-proposed {
     margin-top: 8px;
     border-top: 1px solid var(--hair);
@@ -206,17 +367,11 @@
   .cb-proposed-hd {
     font-family: var(--f-mono);
     font-size: 9.5px;
-    color: var(--ink-3);
+    color: var(--accent);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     padding: 4px 8px 2px;
   }
-  .cb-code.proposed {
-    opacity: 0.85;
-    border-left: 2px dashed var(--accent);
-  }
-  .iconbtn.accept {
-    color: oklch(0.55 0.12 150);
-    font-size: 10px;
-  }
+  .cb-code.proposed { border-left: 2px dashed var(--accent); opacity: 0.9; }
+  .iconbtn.accept { color: oklch(0.55 0.12 150); font-size: 10px; }
 </style>

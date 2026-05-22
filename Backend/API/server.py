@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os, uuid
 
@@ -72,6 +72,25 @@ def get_file_transcript(file_id: str):
     if turns is None:
         raise HTTPException(404, "Transcript not available")
     return turns
+
+
+@app.patch("/files/{file_id}/transcript")
+def update_file_transcript(file_id: str, body: dict):
+    turns = body.get("turns")
+    if turns is None:
+        raise HTTPException(400, "body must contain 'turns'")
+    storage.save_transcript(file_id, turns)
+    return {"ok": True}
+
+
+@app.get("/files/{file_id}/audio")
+def get_audio(file_id: str):
+    path = storage.get_upload_path(file_id)
+    if not path:
+        raise HTTPException(404, "Audio file not found")
+    suffix = path.suffix.lower()
+    media_type = "audio/mpeg" if suffix in (".mp3", ".mp4") else "audio/wav"
+    return FileResponse(str(path), media_type=media_type)
 
 
 # ── Transcribe ────────────────────────────────────────────────────────────────
