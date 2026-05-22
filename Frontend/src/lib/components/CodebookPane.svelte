@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
   import { app } from '$lib/state.svelte.js';
-  import { getCodebook, updateCode, deleteCode, suggestCodes } from '$lib/api.js';
+  import { getCodebook, saveCodebook, suggestCodes } from '$lib/api.js';
 
   let query = $state('');
   let editingId = $state(/** @type {string | null} */ (null));
@@ -17,8 +17,20 @@
   // Per-group "..." menu open state
   let menuOpenId = $state(/** @type {string | null} */ (null));
 
-  // Debounce timers per code ID
-  const _debounces = new Map();
+  // Debounce timer for text edits
+  let _saveTimer = null;
+
+  function persistNow(book) {
+    clearTimeout(_saveTimer);
+    saveCodebook(book).catch((e) => app.toast(`Failed to save codebook: ${e.message}`));
+  }
+
+  function persistDebounced(book) {
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(() => {
+      saveCodebook(book).catch((e) => app.toast(`Failed to save codebook: ${e.message}`));
+    }, 400);
+  }
 
   const COLORS = ['1', '2', '3', '4', '5', '6'];
 
@@ -28,22 +40,19 @@
 
   function renameCode(cid, newName) {
     if (!newName.trim()) return;
-    app.codebook = app.codebook.map((g) => ({
+    const updated = app.codebook.map((g) => ({
       ...g,
       children: g.children.map((c) => (c.id === cid ? { ...c, name: newName } : c))
     }));
-    clearTimeout(_debounces.get(cid));
-    _debounces.set(cid, setTimeout(async () => {
-      try { await updateCode(cid, { name: newName }); }
-      catch (e) { app.toast(`Failed to save: ${e.message}`); }
-    }, 400));
+    app.codebook = updated;
+    persistDebounced(updated);
   }
 
   function addGroup() {
     const name = newGroupName.trim();
     if (!name) return;
     const newGroup = {
-      id: `g_${Date.now()}`,
+      id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name,
       color: newGroupColor,
       count: 0,
@@ -51,13 +60,12 @@
       desc: '',
       children: []
     };
-    app.codebook = [...app.codebook, newGroup];
+    const updated = [...app.codebook, newGroup];
+    app.codebook = updated;
     newGroupName = '';
     newGroupColor = '1';
     addingGroup = false;
-    // Persist via PATCH is not needed for new groups — they'd need a POST /codebook endpoint.
-    // For now the new group lives in local state; on reload it'll be loaded from backend.
-    // TODO: add POST /codebook endpoint for creating groups.
+    persistNow(updated);
   }
 
   function addChildToGroup(gid) {
@@ -65,32 +73,40 @@
     if (!name?.trim()) return;
     const group = app.codebook.find((g) => g.id === gid);
     const color = group?.color ?? '1';
-    const newCode = { id: `c_${Date.now()}`, name: name.trim(), color, count: 0, desc: '' };
-    app.codebook = app.codebook.map((g) =>
+    const newCode = {
+      id: `c_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      name: name.trim(),
+      color,
+      count: 0,
+      desc: ''
+    };
+    const updated = app.codebook.map((g) =>
       g.id === gid ? { ...g, children: [...g.children, newCode] } : g
     );
+    app.codebook = updated;
+    persistNow(updated);
   }
 
-  async function removeGroup(gid) {
+  function removeGroup(gid) {
     if (!confirm('Delete this code group?')) return;
-    app.codebook = app.codebook.filter((g) => g.id !== gid);
+    const updated = app.codebook.filter((g) => g.id !== gid);
+    app.codebook = updated;
     menuOpenId = null;
-    try { await deleteCode(gid); }
-    catch { /* already removed locally */ }
+    persistNow(updated);
   }
 
-  async function removeChild(cid) {
-    app.codebook = app.codebook.map((g) => ({
+  function removeChild(cid) {
+    const updated = app.codebook.map((g) => ({
       ...g,
       children: g.children.filter((c) => c.id !== cid)
     }));
-    try { await deleteCode(cid); }
-    catch { /* already removed locally */ }
+    app.codebook = updated;
+    persistNow(updated);
   }
 
   function acceptProposal(p, idx) {
     const newGroup = {
-      id: `g_${Date.now()}`,
+      id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       name: p.name,
       color: p.color || '1',
       count: 0,
@@ -98,8 +114,10 @@
       desc: p.desc || '',
       children: []
     };
-    app.codebook = [...app.codebook, newGroup];
+    const updated = [...app.codebook, newGroup];
+    app.codebook = updated;
     proposed = proposed.filter((_, i) => i !== idx);
+    persistNow(updated);
   }
 
   function dismissProposal(idx) {
@@ -137,7 +155,7 @@
   onMount(async () => {
     try {
       const book = await getCodebook();
-      if (book.length > 0) app.codebook = book;
+      app.codebook = book;
     } catch (e) {
       app.toast(`Could not load codebook: ${e.message}`);
     }

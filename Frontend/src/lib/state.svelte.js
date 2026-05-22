@@ -46,7 +46,7 @@ function createState() {
   // Initialised with demo cites; live cites accumulate with higher IDs.
   let cites = $state({ ...CITES });
 
-  let activeFile = $state('f7');
+  let activeFile = $state(files[0].id);
   let activeCode = $state(/** @type {string | null} */ (null));
   let citeFlash  = $state(/** @type {number | null} */ (null));
   /** Turn ID to scroll to after a transcript loads — set by cite() for transcript chunks. */

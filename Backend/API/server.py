@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os, uuid
@@ -159,6 +159,12 @@ def suggest_codes(body: dict):
     ]
 
     return LLM.suggest_codes(excerpt, existing_names)
+
+
+@app.put("/codebook")
+def put_codebook(body: list = Body(...)):
+    storage.save_codebook(body)
+    return {"ok": True}
 
 
 @app.patch("/codebook/{code_id}")

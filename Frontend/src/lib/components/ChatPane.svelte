@@ -189,7 +189,7 @@
         <span class="rag-hint">{ragOn ? 'top-8 chunks · Chroma' : 'no retrieval — pure reasoning'}</span>
       </div>
       <textarea
-        placeholder="Ask about themes, codes, or quotes…  ⌘↵ to send"
+        placeholder="Ask about themes, codes, or quotes…  ctrl+↵ to send"
         bind:value={input}
         rows="2"
         onkeydown={onKeydown}

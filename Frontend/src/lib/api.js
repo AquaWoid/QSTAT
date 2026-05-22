@@ -90,19 +90,13 @@ export async function getCodebook() {
   return res.json();
 }
 
-export async function updateCode(id, patch) {
-  const res = await fetch(`/api/codebook/${id}`, {
-    method: 'PATCH',
+export async function saveCodebook(codebook) {
+  const res = await fetch('/api/codebook', {
+    method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(patch)
+    body: JSON.stringify(codebook)
   });
-  if (!res.ok) throw new Error(`patch failed: ${res.status}`);
-  return res.json();
-}
-
-export async function deleteCode(id) {
-  const res = await fetch(`/api/codebook/${id}`, { method: 'DELETE' });
-  if (!res.ok) throw new Error(`delete code failed: ${res.status}`);
+  if (!res.ok) throw new Error(`save codebook failed: ${res.status}`);
   return res.json();
 }
 
