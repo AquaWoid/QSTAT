@@ -80,6 +80,25 @@
     else audioEl.pause();
   });
 
+  // Scroll to a cited turn when requested by app.cite()
+  $effect(() => {
+    const turnId = app.pendingTurnScroll;
+    const _t = transcript; // reactive dependency — re-runs after transcript loads
+    if (!turnId || loading) return;
+    queueMicrotask(() => {
+      const el = document.querySelector(`[data-turn-id="${turnId}"]`);
+      if (el) {
+        const container = el.closest('.pane-body');
+        if (container) {
+          const rect = el.getBoundingClientRect();
+          const cRect = container.getBoundingClientRect();
+          container.scrollTop += rect.top - cRect.top - 80;
+        }
+      }
+      app.pendingTurnScroll = null;
+    });
+  });
+
   function onTimeUpdate() {
     if (audioEl && audioEl.duration) progress = audioEl.currentTime / audioEl.duration;
   }

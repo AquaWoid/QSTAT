@@ -49,6 +49,8 @@ function createState() {
   let activeFile = $state('f7');
   let activeCode = $state(/** @type {string | null} */ (null));
   let citeFlash  = $state(/** @type {number | null} */ (null));
+  /** Turn ID to scroll to after a transcript loads — set by cite() for transcript chunks. */
+  let pendingTurnScroll = $state(/** @type {string | null} */ (null));
 
   let tweaks = $state({ ...TWEAK_DEFAULTS, ...(loadTweaks() ?? {}) });
 
@@ -81,6 +83,8 @@ function createState() {
     set activeCode(v)  { activeCode = v; },
     get citeFlash()    { return citeFlash; },
     set citeFlash(v)   { citeFlash = v; },
+    get pendingTurnScroll()  { return pendingTurnScroll; },
+    set pendingTurnScroll(v) { pendingTurnScroll = v; },
 
     // ── Tweaks ─────────────────────────────────────────────────────────────
     get tweaks()  { return tweaks; },
@@ -114,12 +118,24 @@ function createState() {
     },
 
     // ── Citation click ─────────────────────────────────────────────────────
-    /** Click a citation chip — jumps transcript or highlights file. */
+    /** Click a citation chip — jumps to transcript turn or highlights file. */
     cite(id) {
       citeFlash = id;
       const c = cites[id];
       if (c?.kind === 'd' && c.fileId) {
-        activeFile = c.fileId;
+        if (c.turnId) {
+          // Transcript chunk: switch file (if needed) then scroll to turn.
+          if (activeFile !== c.fileId) {
+            // TranscriptPane will pick up pendingTurnScroll after loading.
+            pendingTurnScroll = c.turnId;
+            activeFile = c.fileId;
+          } else {
+            // File already loaded — scroll immediately.
+            pendingTurnScroll = c.turnId;
+          }
+        } else {
+          activeFile = c.fileId;
+        }
       } else if (typeof document !== 'undefined') {
         queueMicrotask(() => {
           const el = document.querySelector(`[data-cite="${id}"]`);

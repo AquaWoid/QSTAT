@@ -10,6 +10,11 @@
   let docs  = $derived(items.filter((c) => c.kind === 'd'));
   let txs   = $derived(items.filter((c) => c.kind === 't'));
 
+  /** Look up human-readable filename from app.files (falls back to raw id). */
+  function fileName(fileId) {
+    return app.files.find((f) => f.id === fileId)?.name ?? fileId;
+  }
+
   let summary = $derived(
     [
       docs.length && `${docs.length} chunk${docs.length === 1 ? '' : 's'}`,
@@ -19,7 +24,7 @@
       .join(' · ')
   );
 
-  let fileNames = $derived([...new Set(docs.map((d) => d.file))].slice(0, 2).join(', '));
+  let fileNames = $derived([...new Set(docs.map((d) => fileName(d.fileId ?? d.file)))].slice(0, 2).join(', '));
 </script>
 
 <div class="sources">
@@ -56,15 +61,18 @@
             <span class="srcnum">{id}</span>
             <div class="srcbody">
               <div class="srchead">
-                {#if c.kind === 'd'}
-                  <span class="srcfile">{c.file}</span>
-                  <span class="srcmeta">p.{c.page} · {c.score.toFixed(2)}</span>
+                {#if c.chunkType === 'transcript'}
+                  <span class="srcfile">{fileName(c.fileId)}</span>
+                  <span class="srcmeta">{c.ts ?? `turn ${c.page}`}</span>
+                {:else if c.kind === 'd'}
+                  <span class="srcfile">{fileName(c.fileId)}</span>
+                  <span class="srcmeta">p.{c.page} · {c.score?.toFixed(2)}</span>
                 {:else}
-                  <span class="srcfile">Interview 12 — Aldana</span>
+                  <span class="srcfile">{fileName(c.fileId ?? c.file)}</span>
                   <span class="srcmeta">{c.turnTs}</span>
                 {/if}
               </div>
-              {#if c.kind === 'd'}
+              {#if c.preview}
                 <div class="srcprev">{c.preview}</div>
               {/if}
             </div>

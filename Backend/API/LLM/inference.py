@@ -23,7 +23,7 @@ def stream_chat_qualscope(payload: dict):
     messages = payload.get("messages", [])
     rag_cfg = payload.get("rag", {"on": False, "scope": "all"})
 
-    cite_id = 100  # start well above seed CITES (1-9) to avoid collisions
+    cite_id = max(100, int(payload.get("nextCiteId", 100)))
     retrieved_chunks = []
 
     # RAG retrieval
@@ -42,6 +42,9 @@ def stream_chat_qualscope(payload: dict):
                         "page": chunk.get("page", 1),
                         "score": chunk["score"],
                         "preview": chunk["preview"],
+                        "chunkType": chunk.get("chunkType", "document"),
+                        "turnId": chunk.get("turnId"),
+                        "ts": chunk.get("ts"),
                     },
                 }
                 yield f"data: {json.dumps(event)}\n\n"

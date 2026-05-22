@@ -19,9 +19,13 @@
   const _rag = rag;
 
   onMount(() => {
+    // Start cite IDs after the highest already-registered dynamic cite (100+)
+    // so repeated requests never overwrite each other in app.cites.
+    const nextCiteId = Math.max(99, ...Object.keys(app.cites).map(Number).filter((n) => n >= 100)) + 1;
+
     (async () => {
       try {
-        for await (const ev of streamChat({ messages: _messages, model: _model, rag: _rag })) {
+        for await (const ev of streamChat({ messages: _messages, model: _model, rag: _rag, nextCiteId })) {
           if (ev.type === 'token') tokens += ev.value;
           else if (ev.type === 'cite') {
             app.registerCite(ev.value.id, ev.value);

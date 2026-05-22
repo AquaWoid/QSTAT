@@ -2,8 +2,8 @@
 // state and as the shape the API contracts target.
 
 export const PROJECT = {
-  name: 'AI in the Classroom — Phase 2',
-  current: 'Interview 12 — Ms. Aldana',
+  name: 'QSTAT Frontend',
+  current: 'Test Interview',
   files: [
     { id: 'f1',  name: 'Interview 01 — Ramirez.mp3',     type: 'mp3', status: 'ok',    meta: '42:18 · transcribed' },
     { id: 'f2',  name: 'Interview 02 — Chen.mp3',        type: 'mp3', status: 'ok',    meta: '38:04 · transcribed' },
