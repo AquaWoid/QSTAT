@@ -16,8 +16,13 @@ def format_time(seconds):
 def transcribe_faster(file):
     print("starting transcription")
     model_size = "turbo"
-    compute_type = "float16"
-    model = WhisperModel(model_size, device="cuda", compute_type=compute_type)
+    try:
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    except ImportError:
+        device = "cpu"
+    compute_type = "float16" if device == "cuda" else "int8"
+    model = WhisperModel(model_size, device=device, compute_type=compute_type)
     print(f"Model {model_size} Loaded with compute type: {compute_type}")
     segments_raw, info = model.transcribe(file, beam_size=5)
 

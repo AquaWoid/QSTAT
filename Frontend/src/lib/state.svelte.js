@@ -1,0 +1,157 @@
+// QualScope app state — Svelte 5 runes.
+//
+// All cross-component state lives here. Components import `app` and read/write
+// its fields directly; reactivity flows through the rune-based getters/setters.
+
+import { PROJECT, CODEBOOK, CITES } from './data.js';
+
+const KEY = 'qualscope.tweaks.v1';
+
+function loadTweaks() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    return JSON.parse(localStorage.getItem(KEY) ?? 'null');
+  } catch {
+    return null;
+  }
+}
+
+function saveTweaks(t) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(KEY, JSON.stringify(t));
+}
+
+const TWEAK_DEFAULTS = {
+  dark: false,
+  accent: '#9a3a2e',
+  font: 'newsreader-plex',
+  wContext: 220,
+  wCodebook: 280,
+  wChat: 340,
+  showContext: true,
+  showChat: true
+};
+
+export const ACCENTS_LIGHT = ['#9a3a2e', '#345a91', '#3f6b4a', '#6b3a6e'];
+export const ACCENTS_DARK  = ['#d97a6c', '#7fa4d9', '#86b896', '#b48cb6'];
+
+let _toastSeq = 0;
+
+function createState() {
+  // Seed with demo data; ContextPane and CodebookPane replace on mount.
+  let files     = $state(PROJECT.files);
+  let codebook  = $state(CODEBOOK);
+
+  // Citation registry — mutable object so MessageStream can add entries.
+  // Initialised with demo cites; live cites accumulate with higher IDs.
+  let cites = $state({ ...CITES });
+
+  let activeFile = $state('f7');
+  let activeCode = $state(/** @type {string | null} */ (null));
+  let citeFlash  = $state(/** @type {number | null} */ (null));
+
+  let tweaks = $state({ ...TWEAK_DEFAULTS, ...(loadTweaks() ?? {}) });
+
+  // Chat thread — array of {role, content, id, ts, citeIds?}
+  let messages = $state(/** @type {Array<{role:string,content:string,id:string,ts:string,citeIds?:number[]}>} */ ([]));
+
+  // Toast notifications — array of {id, msg, kind}
+  let toasts = $state(/** @type {Array<{id:number,msg:string,kind:'error'|'info'}>} */ ([]));
+
+  return {
+    // ── Files ──────────────────────────────────────────────────────────────
+    get files()     { return files; },
+    set files(v)    { files = v; },
+
+    // ── Codebook ───────────────────────────────────────────────────────────
+    get codebook()  { return codebook; },
+    set codebook(v) { codebook = v; },
+
+    // ── Cites ──────────────────────────────────────────────────────────────
+    get cites()     { return cites; },
+    /** Register a cite object (called by MessageStream as SSE events arrive). */
+    registerCite(id, cite) {
+      cites[id] = cite;
+    },
+
+    // ── Active state ───────────────────────────────────────────────────────
+    get activeFile()   { return activeFile; },
+    set activeFile(v)  { activeFile = v; },
+    get activeCode()   { return activeCode; },
+    set activeCode(v)  { activeCode = v; },
+    get citeFlash()    { return citeFlash; },
+    set citeFlash(v)   { citeFlash = v; },
+
+    // ── Tweaks ─────────────────────────────────────────────────────────────
+    get tweaks()  { return tweaks; },
+    setTweak(key, value) {
+      tweaks = { ...tweaks, [key]: value };
+      saveTweaks(tweaks);
+    },
+
+    // ── Messages (chat thread) ─────────────────────────────────────────────
+    get messages()     { return messages; },
+    pushMessage(m)     { messages = [...messages, m]; },
+    clearMessages()    { messages = []; },
+    /** Append cite IDs to the last assistant message (called when stream ends). */
+    sealLastMessage(citeIds) {
+      if (!messages.length) return;
+      const last = messages[messages.length - 1];
+      if (last.role === 'assistant') {
+        messages = [...messages.slice(0, -1), { ...last, citeIds }];
+      }
+    },
+
+    // ── Toasts ─────────────────────────────────────────────────────────────
+    get toasts()  { return toasts; },
+    toast(msg, kind = 'error') {
+      const id = ++_toastSeq;
+      toasts = [...toasts, { id, msg, kind }];
+      setTimeout(() => {
+        toasts = toasts.filter((t) => t.id !== id);
+      }, 4000);
+    },
+    dismissToast(id) {
+      toasts = toasts.filter((t) => t.id !== id);
+    },
+
+    // ── Citation click ─────────────────────────────────────────────────────
+    /** Click a citation chip — jumps transcript or highlights file. */
+    cite(id) {
+      citeFlash = id;
+      const c = cites[id];
+      if (c?.kind === 'd' && c.fileId) {
+        activeFile = c.fileId;
+      } else if (typeof document !== 'undefined') {
+        queueMicrotask(() => {
+          const el = document.querySelector(`[data-cite="${id}"]`);
+          if (el) {
+            const container = el.closest('.pane-body');
+            if (container) {
+              const rect = el.getBoundingClientRect();
+              const cRect = container.getBoundingClientRect();
+              container.scrollTop += rect.top - cRect.top - 200;
+            }
+          }
+        });
+      }
+      setTimeout(() => { citeFlash = null; }, 1800);
+    }
+  };
+}
+
+export const app = createState();
+
+// ── Template helpers ──────────────────────────────────────────────────────────
+
+export function codeColor(codebook, codeId) {
+  for (const g of codebook) for (const c of g.children) if (c.id === codeId) return c.color;
+  return '1';
+}
+
+export function fmtTime(secs) {
+  const s = Math.max(0, Math.floor(secs));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+}

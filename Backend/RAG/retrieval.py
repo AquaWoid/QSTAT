@@ -3,7 +3,36 @@ import json, re
 import requests
 import chromadb
 
-chroma_client_http = chromadb.HttpClient(host="chroma", port=8000)
+#chroma_client_http = chromadb.HttpClient(host="chroma", port=8000) Docker Version
+chroma_client_http = chromadb.HttpClient(host="localhost", port=8080)
+
+
+def retrieve_chunks(user_id: str, query: str, n: int = 8) -> list:
+    """
+    Returns list of dicts: {file, fileId, page, score, preview}
+    Used by the QualScope chat endpoint for RAG context + cite events.
+    """
+    try:
+        collection = chroma_client_http.get_or_create_collection(name=user_id)
+        results = collection.query(query_texts=[query], n_results=n)
+        chunks = []
+        for doc, meta, dist in zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+        ):
+            score = round(max(0.0, 1.0 - dist), 3)
+            source = meta.get("source", "unknown")
+            chunks.append({
+                "file": source,
+                "fileId": source,
+                "page": meta.get("chunk_index", 0) + 1,
+                "score": score,
+                "preview": doc[:300],
+            })
+        return chunks
+    except Exception:
+        return []
 
 def retrieve_context(user_id : str, subject : str, query : str):
 
@@ -70,4 +99,4 @@ def retrieve_context(user_id : str, subject : str, query : str):
     return content
 
 
-print(retrieve_context("testuser", "software", "what is Atrain?"))
+# print(retrieve_context("testuser", "software", "what is Atrain?"))

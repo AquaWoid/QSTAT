@@ -3,8 +3,9 @@ from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunct
 
 
 def store_vectors(documents : list, metadatas : list, ids : list, user: str, embedding_model : str = "all-MiniLM-L6-v2"):
-    chroma_client = chromadb.HttpClient(host="chroma", port=8000)
-
+    
+    #chroma_client = chromadb.HttpClient(host="chroma", port=8000) Docker Version
+    chroma_client = chromadb.HttpClient(host="localhost", port=8080)
     sentence_transformer_ef = SentenceTransformerEmbeddingFunction(
     model_name=embedding_model,
     device="cpu",
