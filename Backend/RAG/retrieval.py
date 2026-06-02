@@ -3,7 +3,7 @@ import json, re
 import requests
 import chromadb
 
-#chroma_client_http = chromadb.HttpClient(host="chroma", port=8000) Docker Version
+#chroma_client_http = chromadb.HttpClient(host="chroma", port=8000)   #Docker Version - Will use that again once docker compose is re-implemented
 chroma_client_http = chromadb.HttpClient(host="localhost", port=8080)
 
 
@@ -41,6 +41,8 @@ def retrieve_chunks(user_id: str, query: str, n: int = 8) -> list:
     except Exception:
         return []
 
+
+# Legacy Function - Kept for backwards compatability
 def retrieve_context(user_id : str, subject : str, query : str):
 
     collection = chroma_client_http.get_or_create_collection(name=user_id)

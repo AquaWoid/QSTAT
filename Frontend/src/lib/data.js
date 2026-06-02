@@ -100,5 +100,7 @@ export const CITES = {
 };
 
 export const MODELS = [
-  { id: 'qwen',   name: 'qwen3-14b-AWQ',     kind: 'local', desc: 'local · vLLM' }
+  { id: 'qwen',   name: 'qwen3-14b-AWQ',     kind: 'local', desc: 'local · vLLM' },
+  { id: 'sonnet', name: 'claude-sonnet-4.5', kind: 'cloud', desc: 'external · Anthropic' }
+
 ];

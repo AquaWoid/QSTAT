@@ -6,26 +6,46 @@ from fastapi.responses import StreamingResponse
 import API.Configs.system_prompts as system_prompts
 import RAG.retrieval as RAG
 
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+
+current_dir = Path(__file__).resolve().parent
+env_path = current_dir.parent.parent / ".env"
+
+load_dotenv(env_path)
+
 hostname = "localhost"
-VLLM_MODEL = "Qwen/Qwen3-14B-AWQ"
-VLLM_URL = f"http://{hostname}:8000/v1/chat/completions"
+or_key = os.getenv("OR_KEY")
+
+VLLM_URL = "https://openrouter.ai/api/v1/chat/completions"
+VLLM_MODEL = "deepseek/deepseek-v4-flash"
+
+
+#Local LLM Deployment - Will be re-added later
+#VLLM_MODEL = "Qwen/Qwen3-14B-AWQ"
+#VLLM_URL = f"http://{hostname}:8000/v1/chat/completions"
 
 
 # ── QualScope SSE streaming ───────────────────────────────────────────────────
 
 def stream_chat_qualscope(payload: dict):
+
     """
     Generator that yields QualScope SSE events:
       data: {"type":"token","value":"..."}\n\n
       data: {"type":"cite","value":{...}}\n\n
       data: {"type":"done"}\n\n
     """
+    print(payload.get("model"))
+
     messages = payload.get("messages", [])
+    print("MESSAGES:: ", messages)
     rag_cfg = payload.get("rag", {"on": False, "scope": "all"})
 
     cite_id = max(100, int(payload.get("nextCiteId", 100)))
     retrieved_chunks = []
-
+    
     # RAG retrieval
     if rag_cfg.get("on") and messages:
         query = messages[-1]["content"] if messages else ""
@@ -61,8 +81,8 @@ def stream_chat_qualscope(payload: dict):
     )
     if retrieved_chunks:
         source_block = "\n\n".join(
-            f"[^{c['id']}] **{c['file']}** (p.{c['page']}, relevance {c['score']:.2f}):\n{c['preview']}"
-            for c in retrieved_chunks
+            f"[^{chunk['id']}] **{chunk['file']}** (p.{chunk['page']}, relevance {chunk['score']:.2f}):\n{chunk['preview']}"
+            for chunk in retrieved_chunks
         )
         sys_content += (
             "\n\nWhen referencing the sources below, use [^N] inline notation "
@@ -83,7 +103,7 @@ def stream_chat_qualscope(payload: dict):
             VLLM_URL,
             data=req_data,
             method="POST",
-            headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
+            headers={"Content-Type": "application/json", "Accept": "text/event-stream",  "Authorization": f"Bearer {or_key}"},
         )
         buf = ""
         with urllib.request.urlopen(request, timeout=120) as resp:
@@ -131,8 +151,9 @@ def suggest_codes(transcript_text: str, existing_names: list) -> list:
     )
 
     try:
-        resp = requests.post(
+        response = requests.post(
             VLLM_URL,
+            headers={"Authorization": f"Bearer {or_key}"},
             json={
                 "model": VLLM_MODEL,
                 "messages": [
@@ -144,7 +165,7 @@ def suggest_codes(transcript_text: str, existing_names: list) -> list:
             },
             timeout=60,
         )
-        content = resp.json()["choices"][0]["message"]["content"]
+        content = response.json()["choices"][0]["message"]["content"]
         content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
         m = re.search(r"\[.*\]", content, re.DOTALL)
         if m:
@@ -152,6 +173,10 @@ def suggest_codes(transcript_text: str, existing_names: list) -> list:
     except Exception:
         pass
     return []
+
+
+
+
 
 
 # ── Legacy helpers (kept for backwards compat) ────────────────────────────────

@@ -153,9 +153,9 @@ def suggest_codes(body: dict):
         )
 
     existing_names = [
-        c["name"]
+        code["name"]
         for g in existing
-        for c in [{"name": g["name"]}] + g.get("children", [])
+        for code in [{"name": g["name"]}] + g.get("children", [])
     ]
 
     return LLM.suggest_codes(excerpt, existing_names)
@@ -245,8 +245,8 @@ def _process_audio(fid: str, path: str):
 
 
 def _process_document(fid: str, path: str):
-    import RAG.chunking as chk
-    import RAG.vectorstore as vs
+    import RAG.chunking as chunking
+    import RAG.vectorstore as vectorstore
     from pathlib import Path as P
 
     storage.update_file(fid, {"meta": "indexing…", "progress": 20})
@@ -267,10 +267,10 @@ def _process_document(fid: str, path: str):
                 text = f.read()
             pages = max(1, len(text) // 3000)
 
-        docs, mets, ids = chk.chunk_markdown_doc(text, fid)
+        docs, mets, ids = chunking.chunk_markdown_doc(text, fid)
         storage.update_file(fid, {"meta": "embedding…", "progress": 70})
         try:
-            vs.store_vectors(docs, mets, ids, "default")
+            vectorstore.store_vectors(docs, mets, ids, "default")
         except Exception:
             pass
         storage.update_file(fid, {"status": "ok", "meta": f"{pages} pp · {len(docs)} chunks", "progress": None})
