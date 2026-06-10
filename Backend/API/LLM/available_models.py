@@ -23,5 +23,4 @@ def list_cloud_models():
 
 
 list_cloud_models()
-
 print(list_local_models())
