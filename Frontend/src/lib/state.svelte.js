@@ -53,6 +53,7 @@ function createState() {
   let pendingTurnScroll = $state(/** @type {string | null} */ (null));
 
   let tweaks = $state({ ...TWEAK_DEFAULTS, ...(loadTweaks() ?? {}) });
+  let tweaksOpen = $state(false);
 
   // Chat thread — array of {role, content, id, ts, citeIds?}
   let messages = $state(/** @type {Array<{role:string,content:string,id:string,ts:string,citeIds?:number[]}>} */ ([]));
@@ -87,6 +88,10 @@ function createState() {
     set pendingTurnScroll(v) { pendingTurnScroll = v; },
 
     // ── Tweaks ─────────────────────────────────────────────────────────────
+    get tweaksOpen()      { return tweaksOpen; },
+    set tweaksOpen(v)     { tweaksOpen = v; },
+    toggleTweaks()        { tweaksOpen = !tweaksOpen; },
+
     get tweaks()  { return tweaks; },
     setTweak(key, value) {
       tweaks = { ...tweaks, [key]: value };

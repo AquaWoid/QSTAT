@@ -32,9 +32,10 @@
     <span>{app.files.length} files · {codeCount} codes · {transcriptCount} transcripts</span>
   </div>
   <button class="iconbtn" title="Refresh"><Icon name="refresh" /></button>
-  <button class="iconbtn" title="Settings"><Icon name="settings" /></button>
+  <button class="iconbtn" class:active={app.tweaksOpen} title="Tweaks" onclick={() => app.toggleTweaks()}><Icon name="settings" /></button>
 </div>
 
 <style>
   .dot.proc { background: oklch(0.65 0.15 80); }
+  .iconbtn.active { color: var(--accent); }
 </style>

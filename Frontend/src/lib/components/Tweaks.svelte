@@ -1,8 +1,6 @@
 <script>
   import { app, ACCENTS_LIGHT, ACCENTS_DARK } from '$lib/state.svelte.js';
 
-  let open = $state(false);
-
   let t = $derived(app.tweaks);
 
   function set(key, value) {
@@ -33,18 +31,11 @@
   let accents = $derived(t.dark ? ACCENTS_DARK : ACCENTS_LIGHT);
 </script>
 
-<button class="tweaks-fab" onclick={() => (open = !open)} title="Tweaks">
-  <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-    <circle cx="8" cy="8" r="2" />
-    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M3 13l1.4-1.4M11.6 4.4 13 3" />
-  </svg>
-</button>
-
-{#if open}
+{#if app.tweaksOpen}
   <div class="tweaks-panel">
     <div class="tweaks-hd">
       <b>Tweaks</b>
-      <button class="x" onclick={() => (open = false)} aria-label="Close">×</button>
+      <button class="x" onclick={() => (app.tweaksOpen = false)} aria-label="Close">×</button>
     </div>
     <div class="tweaks-body">
       <div class="sect">Theme</div>
@@ -105,24 +96,10 @@
 {/if}
 
 <style>
-  .tweaks-fab {
-    position: fixed; right: 16px; bottom: 16px;
-    z-index: 90;
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    background: var(--bg-elev);
-    color: var(--ink-3);
-    border: 1px solid var(--hair);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-    display: grid; place-items: center;
-    cursor: default;
-  }
-  .tweaks-fab:hover { color: var(--accent); border-color: var(--accent); }
-
   .tweaks-panel {
-    position: fixed; right: 16px; bottom: 56px;
+    position: fixed; right: 8px; top: 44px;
     z-index: 91;
-    width: 280px; max-height: calc(100vh - 88px);
+    width: 280px; max-height: calc(100vh - 60px);
     display: flex; flex-direction: column;
     background: var(--bg-elev);
     color: var(--ink);

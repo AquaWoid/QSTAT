@@ -27,7 +27,7 @@ VLLM_MODEL = "deepseek/deepseek-v4-flash"
 #VLLM_URL = f"http://{hostname}:8000/v1/chat/completions"
 
 
-# ── QualScope SSE streaming ───────────────────────────────────────────────────
+# QualScope SSE streaming 
 
 def stream_chat_qualscope(payload: dict):
 
@@ -75,7 +75,7 @@ def stream_chat_qualscope(payload: dict):
 
     # Build system prompt — include numbered sources so LLM can cite them inline
     sys_content = (
-        "You are QualScope, an AI assistant for qualitative researchers. "
+        "You are QSTAT, an AI assistant for qualitative researchers. "
         "Help analyse interview transcripts and research documents with precision. "
         "Format responses in markdown. "
     )
@@ -90,6 +90,8 @@ def stream_chat_qualscope(payload: dict):
         )
 
     full_messages = [{"role": "system", "content": sys_content}] + messages
+
+    print(full_messages)
 
     req_data = json.dumps({
         "model": VLLM_MODEL,
