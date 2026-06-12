@@ -13,14 +13,12 @@ def list_local_models():
 
     return model_list_cleaned
 
-
 def list_cloud_models():
 
     with open(cloud_model_path, "r", encoding="utf-8") as f:
         models = json.loads(f.read())
         for m in models:
             print(m.get("identifier"))
-
 
 list_cloud_models()
 print(list_local_models())

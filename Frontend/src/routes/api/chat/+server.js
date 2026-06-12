@@ -10,7 +10,7 @@ import { env } from '$env/dynamic/private';
 export async function POST({ request }) {
   const body = await request.json();
 
-  const upstream = await fetch(`${env.FASTAPI_URL ?? 'http://localhost:8000'}/chat`, {
+  const upstream = await fetch(`${env.FASTAPI_URL ?? 'http://localhost:8001'}/chat`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

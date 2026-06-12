@@ -9,7 +9,7 @@ import { env } from '$env/dynamic/private';
 
 export async function POST({ request }) {
   const body = await request.json();
-  const r = await fetch(`${env.FASTAPI_URL ?? 'http://localhost:8000'}/transcribe`, {
+  const r = await fetch(`${env.FASTAPI_URL ?? 'http://localhost:8001'}/transcribe`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
