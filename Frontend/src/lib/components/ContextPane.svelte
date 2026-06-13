@@ -3,7 +3,7 @@
   import Icon from '$lib/Icon.svelte';
   import FileRow from './FileRow.svelte';
   import { app } from '$lib/state.svelte.js';
-  import { listFiles, uploadFile } from '$lib/api.js';
+  import { listFiles, uploadFile, deleteFile } from '$lib/api.js';
 
   let audio = $derived(app.files.filter((f) => f.type === 'mp3'));
   let docs  = $derived(app.files.filter((f) => f.type !== 'mp3'));
@@ -56,6 +56,18 @@
     }
   }
 
+  async function handleDelete(id) {
+    try {
+      await deleteFile(id);
+      app.files = app.files.filter((f) => f.id !== id);
+      if (app.activeFile === id) {
+        app.activeFile = app.files[0]?.id ?? null;
+      }
+    } catch (e) {
+      app.toast(`Delete failed: ${e.message}`);
+    }
+  }
+
   function onDrop(e) {
     e.preventDefault();
     dragging = false;
@@ -79,8 +91,10 @@
   <div class="pane-hd">
     <span class="lbl">Project Context</span>
     <div class="actions">
-      <button class="iconbtn" title="Sort"><Icon name="sort" /></button>
-      <button class="iconbtn" title="Filter"><Icon name="filter" /></button>
+      <!-- Might reimplement - Not sure yet if it's really neccesary
+       <button class="iconbtn" title="Sort"><Icon name="sort" /></button>
+      <button class="iconbtn" title="Filter"><Icon name="filter" /></button>         
+      -->
     </div>
   </div>
 
@@ -91,7 +105,7 @@
     </div>
     <div class="ctx-list">
       {#each audio as f (f.id)}
-        <FileRow {f} active={f.id === app.activeFile} onpick={(id) => (app.activeFile = id)} />
+        <FileRow {f} active={f.id === app.activeFile} onpick={(id) => (app.activeFile = id)} ondelete={handleDelete} />
       {/each}
     </div>
 
@@ -100,7 +114,7 @@
     </div>
     <div class="ctx-list">
       {#each docs as f (f.id)}
-        <FileRow {f} active={f.id === app.activeFile} onpick={(id) => (app.activeFile = id)} />
+        <FileRow {f} active={f.id === app.activeFile} onpick={(id) => (app.activeFile = id)} ondelete={handleDelete} />
       {/each}
     </div>
 
@@ -124,7 +138,7 @@
   <div class="ctx-foot">
     <div class="avatar">LW</div>
     <div style="display:flex; flex-direction:column;">
-      <span style="color: var(--ink-2);">Lukas Waldhofer</span>
+      <span style="color: var(--ink-2);">Example User</span>
       <span>last sync · 14:02</span>
     </div>
   </div>

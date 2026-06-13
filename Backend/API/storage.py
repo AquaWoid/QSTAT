@@ -11,6 +11,8 @@ import json, uuid
 from pathlib import Path
 from typing import Optional
 
+from RAG.vectorstore import remove_stale_document_vectors
+
 BASE_DIR = Path(__file__).parent.parent / "UserData" / "default"
 UPLOADS_DIR = BASE_DIR / "uploads"
 TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
@@ -76,6 +78,7 @@ def delete_file_meta(file_id: str) -> bool:
             p.unlink(missing_ok=True)
     t = TRANSCRIPTS_DIR / f"{file_id}.json"
     t.unlink(missing_ok=True)
+    remove_stale_document_vectors(user_id="default") #Vector DB removal with Placeholder Userid need to swap later
     return True
 
 

@@ -108,4 +108,16 @@ def retrieve_context(user_id : str, subject : str, query : str):
     return content
 
 
+def remove_document(user_id: str, document_id : str):
+    collection = chroma_client_http.get_or_create_collection(name=user_id)  
+    
+
+def debug_retrieve():
+    collection = chroma_client_http.get_or_create_collection(name="default")
+    ids = collection.get(include=[])["ids"]
+
+    unique_roots = sorted({id_.split("_")[0] for id_ in ids})
+
+    print(unique_roots)
+debug_retrieve()
 # print(retrieve_context("testuser", "software", "what is Atrain?"))
