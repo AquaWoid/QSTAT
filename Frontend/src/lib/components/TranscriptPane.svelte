@@ -206,8 +206,6 @@
     <div class="tr-toolbar">
       <div class="grp">
         <button class="chip on">codes</button>
-        <button class="chip">timestamps</button>
-        <button class="chip">confidence</button>
       </div>
       <div class="grp">
         <button class="chip">edit</button>

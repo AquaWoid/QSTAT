@@ -59,6 +59,17 @@
     streamingId = null;
   }
 
+  async function copyThread() {
+    if (!app.messages.length) return;
+    const md = app.messages
+      .map((msg) => {
+        const who = msg.role === 'user' ? 'User' : 'QualScope';
+        return `**${who}** _(${msg.ts})_\n\n${msg.content}`;
+      })
+      .join('\n\n---\n\n');
+    await navigator.clipboard.writeText(md);
+  }
+
   // Messages to pass to the live stream — everything before the streaming placeholder.
   let streamMessages = $derived.by(() => {
     if (!streamingId) return [];
@@ -114,9 +125,14 @@
       {/if}
     </div>
     <div class="chat-actions">
-      <button class="iconbtn" title="Copy thread"><Icon name="copy" /></button>
+      <button class="iconbtn" title="Copy thread" onclick={copyThread}><Icon name="copy" /></button>
       <button class="iconbtn" title="New thread" onclick={newThread}><Icon name="plus" /></button>
+
+      <!-- Temporarly deactivated - Still have to think about what should be put in the context menu
       <button class="iconbtn" title="More"><Icon name="more" /></button>
+      -->
+
+     
     </div>
   </div>
 
@@ -197,13 +213,16 @@
       ></textarea>
       <div class="row">
         <div class="slash">
-          <span class="cmd">/summarize</span>
+        <!--
+           <span class="cmd">/summarize</span>
           <span class="cmd">/find-themes</span>
           <span class="cmd">/cite</span>
-          <span class="cmd">/contradict</span>
+          <span class="cmd">/contradict</span>         
+        -->
+
         </div>
         <button class="send" onclick={send} disabled={isStreaming}>
-          {isStreaming ? 'streaming…' : 'send'} <span class="k">⌘↵</span>
+          {isStreaming ? 'streaming…' : 'send'} <span class="k">ctrl+↵</span>
         </button>
       </div>
     </div>
