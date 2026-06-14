@@ -13,6 +13,11 @@
   /** @type {HTMLAudioElement | null} */
   let audioEl = $state(null);
 
+  let editing = $state(false);
+  let saving = $state(false);
+  /** @type {{ id: string, speaker: string, spk: string, ts: string, text: string }[]} */
+  let editDraft = $state([]);
+
   /** @type {{ x: number, y: number } | null} */
   let qcode = $state(null);
   /** @type {{ turnId: string, segStart: number, segEnd: number } | null} */
@@ -171,6 +176,51 @@
     currentSelection = null;
     window.getSelection?.()?.removeAllRanges();
   }
+
+  function startEdit() {
+    editDraft = transcript.map((turn) => ({
+      id: turn.id,
+      speaker: turn.speaker,
+      spk: turn.spk,
+      ts: turn.ts,
+      text: turn.segments.map((s) => s.t).join(' '),
+    }));
+    editing = true;
+  }
+
+  function cancelEdit() {
+    editing = false;
+    editDraft = [];
+  }
+
+  function autoresize(node) {
+    function resize() {
+      node.style.height = 'auto';
+      node.style.height = node.scrollHeight + 'px';
+    }
+    requestAnimationFrame(resize);
+    node.addEventListener('input', resize);
+    return { destroy() { node.removeEventListener('input', resize); } };
+  }
+
+  async function saveEdit() {
+    if (!app.activeFile) return;
+    saving = true;
+    const savedTurns = editDraft.map((d) => {
+      const orig = transcript.find((t) => t.id === d.id) ?? {};
+      return { ...orig, id: d.id, speaker: d.speaker, spk: d.spk, ts: d.ts, segments: [{ t: d.text }] };
+    });
+    try {
+      await updateTranscript(app.activeFile, savedTurns);
+      transcript = savedTurns;
+      editing = false;
+      editDraft = [];
+    } catch (e) {
+      app.toast(`Save failed: ${e.message}`);
+    } finally {
+      saving = false;
+    }
+  }
 </script>
 
 <div class="pane">
@@ -208,8 +258,16 @@
         <button class="chip on">codes</button>
       </div>
       <div class="grp">
-        <button class="chip">edit</button>
-        <button class="chip">find</button>
+        {#if editing}
+          <button class="chip on" onclick={saveEdit} disabled={saving}>{saving ? 'saving…' : 'save'}</button>
+          <button class="chip" onclick={cancelEdit} disabled={saving}>cancel</button>
+        {:else}
+          <button class="chip" onclick={startEdit} disabled={loading || noTranscript}>edit</button>
+          <!-- Query function traken out for now
+           <button class="chip">find</button>         
+          -->
+
+        {/if}
       </div>
     </div>
   </div>
@@ -226,6 +284,27 @@
         {:else}
           Document indexed for RAG — no transcript view.
         {/if}
+      </div>
+    {:else if editing}
+      <div class="tr-body">
+        {#each editDraft as draft, i (draft.id)}
+          <div class="tr-turn {draft.spk}">
+            <div class="meta">
+              <input
+                bind:value={editDraft[i].speaker}
+                style="font-size:11px;font-weight:600;font-family:var(--f-mono);border:1px solid var(--ink-3);border-radius:3px;padding:1px 5px;background:var(--bg-1);color:inherit;width:90px;"
+              />
+              <span class="ts">{draft.ts}</span>
+            </div>
+            <div class="tr-text">
+              <textarea
+                use:autoresize
+                bind:value={editDraft[i].text}
+                style="width:100%;font-size:13px;line-height:1.55;font-family:inherit;border:1px solid var(--ink-3);border-radius:4px;padding:5px 8px;background:var(--bg-1);color:inherit;resize:none;overflow:hidden;box-sizing:border-box;"
+              ></textarea>
+            </div>
+          </div>
+        {/each}
       </div>
     {:else}
       <div class="tr-body">
