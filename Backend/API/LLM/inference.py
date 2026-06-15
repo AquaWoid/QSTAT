@@ -177,9 +177,42 @@ def suggest_codes(transcript_text: str, existing_names: list) -> list:
     return []
 
 
+def generate_codebook(transcript_text: str):
 
+    prompt = "Input Text: " + transcript_text
 
+    try:
+        response = requests.post(
+            VLLM_URL,
+            headers={"Authorization": f"Bearer {or_key}"},
+            json={
+                "model": VLLM_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompts.get_codebook_prompt(5,15)},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            timeout=60,
+        )
+        content = response.json()["choices"][0]["message"]["content"]
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        m = re.search(r"\[.*\]", content, re.DOTALL)
+        if m:
+            print("Codebook Output: ", m.group(0))
+            return json.loads(m.group(0))
+    except Exception:
+        pass
+    return []
 
+"""
+transcript_path = Path("UserData/default/transcripts/60f35d89.json")
+
+with open(transcript_path, "r", encoding="utf-8") as file:
+    js = file.read()
+    print(generate_codebook(js))
+"""
 
 # ── Legacy helpers (kept for backwards compat) ────────────────────────────────
 

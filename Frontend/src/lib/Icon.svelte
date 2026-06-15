@@ -52,6 +52,10 @@
     <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6 13 13M3 13l1.4-1.4M11.6 4.4 13 3" />
   {:else if name === 'cite'}
     <path d="M3 4.5h4v4H3zM3 8.5c0 2 1 3 2.5 3.5M9 4.5h4v4H9zM9 8.5c0 2 1 3 2.5 3.5" />
+  {:else if name === 'info'}
+    <circle cx="8" cy="8" r="6" />
+    <circle cx="8" cy="5.5" r="0.8" fill="currentColor" stroke="none" />
+    <path d="M8 8v3.5" stroke-width="1.75" />
   {:else if name === 'trash'}
     <path d="M3 5h10M6 5V3.5h4V5M4.5 5l.75 8h5.5l.75-8" />
   {/if}

@@ -1,0 +1,16 @@
+services:
+ 
+  chroma:
+    image: chromadb/chroma
+    volumes:
+      - chroma_data:/data
+    ports:
+      - "8080:8000"
+    networks:
+      - internal
+
+volumes:
+  chroma_data:
+
+networks:
+  internal:

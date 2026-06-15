@@ -331,7 +331,7 @@
                       class:active={isActive}
                       data-seg-idx={si}
                       onmouseenter={() => (app.activeCode = seg.code)}
-                      onmouseleave={() => (app.activeCode = null)}
+                      onmouseleave={() => { if (app.activeCode === seg.code) app.activeCode = null; }}
                       role="mark"
                     >{seg.t}{#if seg.cid}<span
                         class="cite-anchor"

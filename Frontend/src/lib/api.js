@@ -110,6 +110,16 @@ export async function updateTranscript(fileId, turns) {
   return res.json();
 }
 
+export async function generateCodebook(transcript) {
+  const res = await fetch('/api/codebook/generate', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ transcript })
+  });
+  if (!res.ok) throw new Error(`generate codebook failed: ${res.status}`);
+  return res.json();
+}
+
 export async function suggestCodes(transcriptId, existing) {
   const res = await fetch('/api/codebook', {
     method: 'POST',

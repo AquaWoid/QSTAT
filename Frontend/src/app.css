@@ -574,7 +574,7 @@ html[data-theme="dark"] .qcode {
 .cb-group:last-child { border-bottom: 0; }
 .cb-parent {
   display: grid;
-  grid-template-columns: 16px 12px 1fr auto auto;
+  grid-template-columns: 16px 12px 1fr auto auto auto;
   gap: 6px; align-items: center;
   padding: 8px 12px;
   cursor: default;
@@ -592,6 +592,7 @@ html[data-theme="dark"] .qcode {
   background: hsl(var(--c) / 0.75);
   border: 1px solid hsl(var(--c) / 0.9);
 }
+.cb-parent .body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .cb-parent .name {
   font-family: var(--f-serif);
   font-size: 14px;
@@ -599,6 +600,18 @@ html[data-theme="dark"] .qcode {
   color: var(--ink);
   letter-spacing: -0.005em;
 }
+.cb-parent .desc {
+  font-family: var(--f-serif);
+  font-style: italic;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  line-height: 1.4;
+  text-wrap: pretty;
+  display: none;
+  min-height: 1em;
+  cursor: text;
+}
+.cb-parent .info-btn.active { opacity: 1; color: var(--accent); }
 .cb-parent .count {
   font-family: var(--f-mono); font-size: 10px;
   color: var(--ink-4);
@@ -618,7 +631,7 @@ html[data-theme="dark"] .qcode {
 .cb-children { padding: 0 0 6px; }
 .cb-code {
   display: grid;
-  grid-template-columns: 28px 8px 1fr auto;
+  grid-template-columns: 28px 8px 1fr auto auto auto;
   gap: 6px; align-items: start;
   padding: 5px 12px 5px 0;
   cursor: default;
@@ -645,7 +658,10 @@ html[data-theme="dark"] .qcode {
   text-wrap: pretty;
   display: none;
 }
-.cb-code.expanded .desc { display: block; }
+.cb-code .info-btn { opacity: 0; transition: opacity 0.1s; color: var(--ink-4); }
+.cb-code:hover .info-btn { opacity: 1; }
+.cb-code .info-btn.active { opacity: 1; color: var(--accent); }
+.desc.visible { display: block; }
 .cb-code .count {
   font-family: var(--f-mono); font-size: 10px;
   color: var(--ink-4);
@@ -653,7 +669,8 @@ html[data-theme="dark"] .qcode {
   font-variant-numeric: tabular-nums;
 }
 
-.cb-code .name[contenteditable="true"] {
+.cb-code .name[contenteditable="true"],
+.cb-parent .name[contenteditable="true"] {
   outline: none;
   background: var(--bg-elev);
   border-radius: 2px;
@@ -661,6 +678,24 @@ html[data-theme="dark"] .qcode {
   padding: 0 3px;
   margin: 0 -3px;
 }
+.desc[contenteditable="true"] {
+  display: block;
+  outline: none;
+  background: var(--bg-elev);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--accent);
+  padding: 2px 3px;
+  margin: 0 -3px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.desc:empty::before {
+  content: 'Add description…';
+  color: var(--ink-4);
+  font-style: italic;
+  pointer-events: none;
+}
+.desc[contenteditable="true"]:empty::before { content: none; }
 
 .cb-foot {
   position: sticky; bottom: 0;

@@ -167,6 +167,18 @@ def put_codebook(body: list = Body(...)):
     return {"ok": True}
 
 
+@app.put("/codebook/generate")
+def generate_codebook(body: dict):
+    print("Generate Codebook Called!")
+    transcript = body.get("transcript", "")
+    print("Transcript: ", transcript)
+    result = LLM.generate_codebook(transcript)
+    print("Got Codebook Result: ", result)
+    storage.save_codebook(result)
+    print("saved codebook!!")
+    return {"ok": True}
+
+
 @app.patch("/codebook/{code_id}")
 def patch_code(code_id: str, patch: dict):
     result = storage.patch_code(code_id, patch)

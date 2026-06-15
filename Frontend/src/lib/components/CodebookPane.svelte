@@ -2,11 +2,19 @@
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
   import { app } from '$lib/state.svelte.js';
-  import { getCodebook, saveCodebook, suggestCodes } from '$lib/api.js';
+  import { getCodebook, saveCodebook, suggestCodes, generateCodebook, getTranscript } from '$lib/api.js';
 
   let query = $state('');
-  let editingId = $state(/** @type {string | null} */ (null));
+  let editing = $state(/** @type {{id: string, field: 'name'|'desc'} | null} */ (null));
   let suggesting = $state(false);
+  let generating = $state(false);
+  let expandedDescs = $state(/** @type {Set<string>} */ (new Set()));
+
+  function toggleDesc(id) {
+    const next = new Set(expandedDescs);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    expandedDescs = next;
+  }
   let proposed = $state(/** @type {Array<{name:string,desc:string,color:string}>} */ ([]));
 
   // Inline add-group form
@@ -38,11 +46,33 @@
     app.codebook = app.codebook.map((g) => (g.id === gid ? { ...g, open: !g.open } : g));
   }
 
+  function renameGroup(gid, newName) {
+    if (!newName.trim()) return;
+    const updated = app.codebook.map((g) => g.id === gid ? { ...g, name: newName.trim() } : g);
+    app.codebook = updated;
+    persistDebounced(updated);
+  }
+
+  function updateGroupDesc(gid, newDesc) {
+    const updated = app.codebook.map((g) => g.id === gid ? { ...g, desc: newDesc } : g);
+    app.codebook = updated;
+    persistDebounced(updated);
+  }
+
   function renameCode(cid, newName) {
     if (!newName.trim()) return;
     const updated = app.codebook.map((g) => ({
       ...g,
       children: g.children.map((c) => (c.id === cid ? { ...c, name: newName } : c))
+    }));
+    app.codebook = updated;
+    persistDebounced(updated);
+  }
+
+  function updateCodeDesc(cid, newDesc) {
+    const updated = app.codebook.map((g) => ({
+      ...g,
+      children: g.children.map((c) => c.id === cid ? { ...c, desc: newDesc } : c)
     }));
     app.codebook = updated;
     persistDebounced(updated);
@@ -124,6 +154,24 @@
     proposed = proposed.filter((_, i) => i !== idx);
   }
 
+  async function handleGenerate() {
+    if (!app.activeFile) { app.toast('No transcript selected'); return; }
+    generating = true;
+    try {
+      const turns = await getTranscript(app.activeFile);
+      const text = turns.map(t =>
+        `${t.speaker || 'Speaker'}: ` + (t.segments || []).map(s => s.t).join(' ')
+      ).join('\n');
+      await generateCodebook(text);
+      const book = await getCodebook();
+      app.codebook = book;
+    } catch (e) {
+      app.toast(`Generate failed: ${e.message}`);
+    } finally {
+      generating = false;
+    }
+  }
+
   async function handleSuggest() {
     suggesting = true;
     proposed = [];
@@ -171,7 +219,7 @@
 
 <svelte:window onclick={onWindowClick} />
 
-<div class="pane elev">
+<div class="pane elev" class:menu-open={menuOpenId !== null}>
   <div class="pane-hd">
     <span class="lbl">Codebook · {totalCount}</span>
     <div class="actions">
@@ -218,15 +266,37 @@
           <div
             class="cb-parent"
             class:open={g.open}
-            onclick={() => toggleGroup(g.id)}
+            onclick={(e) => { if (!/** @type {HTMLElement} */(e.target).closest('.body')) toggleGroup(g.id); }}
             role="button"
             tabindex="0"
             onkeydown={(e) => e.key === 'Enter' && toggleGroup(g.id)}
           >
             <span class="caret"><Icon name="chev-right" /></span>
             <span class="sw" style="--c: var(--code-{g.color})"></span>
-            <span class="name">{g.name}</span>
+            <div class="body">
+              <span
+                class="name"
+                contenteditable={editing?.id === g.id && editing?.field === 'name'}
+                ondblclick={(e) => { e.stopPropagation(); editing = { id: g.id, field: 'name' }; setTimeout(() => /** @type {HTMLElement} */ (e.target).focus(), 0); }}
+                onblur={(e) => { renameGroup(g.id, /** @type {HTMLElement} */ (e.target).textContent || g.name); editing = null; }}
+                onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); /** @type {HTMLElement} */ (e.target).blur(); } if (e.key === 'Escape') { /** @type {HTMLElement} */ (e.target).textContent = g.name; /** @type {HTMLElement} */ (e.target).blur(); } }}
+              >{g.name}</span>
+              <span
+                class="desc"
+                class:visible={expandedDescs.has(g.id)}
+                contenteditable={editing?.id === g.id && editing?.field === 'desc'}
+                ondblclick={(e) => { e.stopPropagation(); editing = { id: g.id, field: 'desc' }; setTimeout(() => /** @type {HTMLElement} */ (e.target).focus(), 0); }}
+                onblur={(e) => { updateGroupDesc(g.id, /** @type {HTMLElement} */ (e.target).textContent.trim()); editing = null; }}
+                onkeydown={(e) => { if (e.key === 'Escape') { /** @type {HTMLElement} */ (e.target).textContent = g.desc || ''; /** @type {HTMLElement} */ (e.target).blur(); } }}
+              >{g.desc || ''}</span>
+            </div>
             <span class="count">{g.count}</span>
+            <button
+              class="iconbtn info-btn"
+              class:active={expandedDescs.has(g.id)}
+              title="Description"
+              onclick={(e) => { e.stopPropagation(); toggleDesc(g.id); }}
+            ><Icon name="info" size={11} /></button>
             <div class="cb-menu" style="position:relative;">
               <button
                 class="iconbtn"
@@ -252,32 +322,55 @@
                 <div
                   class="cb-code"
                   class:active
-                  class:expanded={active}
                   onmouseenter={() => (app.activeCode = c.id)}
-                  onmouseleave={() => (app.activeCode = null)}
+                  onmouseleave={() => { if (app.activeCode === c.id) app.activeCode = null; }}
                 >
                   <span></span>
                   <span class="sw" style="--c: var(--code-{c.color})"></span>
                   <div class="body">
                     <span
                       class="name"
-                      contenteditable={editingId === c.id}
+                      contenteditable={editing?.id === c.id && editing?.field === 'name'}
                       ondblclick={(e) => {
                         e.stopPropagation();
-                        editingId = c.id;
+                        editing = { id: c.id, field: 'name' };
                         setTimeout(() => /** @type {HTMLElement} */ (e.target).focus(), 0);
                       }}
                       onblur={(e) => {
                         renameCode(c.id, /** @type {HTMLElement} */ (e.target).textContent || c.name);
-                        editingId = null;
+                        editing = null;
                       }}
                       onkeydown={(e) => {
                         if (e.key === 'Enter') { e.preventDefault(); /** @type {HTMLElement} */ (e.target).blur(); }
+                        if (e.key === 'Escape') { /** @type {HTMLElement} */ (e.target).textContent = c.name; /** @type {HTMLElement} */ (e.target).blur(); }
                       }}
                     >{c.name}</span>
-                    {#if c.desc}<span class="desc">{c.desc}</span>{/if}
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <span
+                      class="desc"
+                      class:visible={expandedDescs.has(c.id)}
+                      contenteditable={editing?.id === c.id && editing?.field === 'desc'}
+                      ondblclick={(e) => {
+                        e.stopPropagation();
+                        editing = { id: c.id, field: 'desc' };
+                        setTimeout(() => /** @type {HTMLElement} */ (e.target).focus(), 0);
+                      }}
+                      onblur={(e) => {
+                        updateCodeDesc(c.id, /** @type {HTMLElement} */ (e.target).textContent.trim());
+                        editing = null;
+                      }}
+                      onkeydown={(e) => {
+                        if (e.key === 'Escape') { /** @type {HTMLElement} */ (e.target).textContent = c.desc || ''; /** @type {HTMLElement} */ (e.target).blur(); }
+                      }}
+                    >{c.desc || ''}</span>
                   </div>
                   <span class="count">{c.count}</span>
+                  <button
+                    class="iconbtn info-btn"
+                    class:active={expandedDescs.has(c.id)}
+                    title="Description"
+                    onclick={(e) => { e.stopPropagation(); toggleDesc(c.id); }}
+                  ><Icon name="info" size={11} /></button>
                   <button
                     class="iconbtn del-code"
                     title="Delete code"
@@ -310,9 +403,15 @@
     </div>
 
     <div class="cb-foot">
+      <!-- excluded for now
       <button>Merge…</button>
-      <button>Export</button>
-      <button class="primary" onclick={handleSuggest} disabled={suggesting}>
+      <button>Export</button>      
+      -->
+
+      <button class="primary" onclick={handleGenerate} disabled={generating || suggesting}>
+        {generating ? 'generating…' : '✦ Generate'}
+      </button>
+      <button class="primary" onclick={handleSuggest} disabled={suggesting || generating}>
         {suggesting ? 'suggesting…' : '✦ Suggest codes'}
       </button>
     </div>
@@ -320,6 +419,7 @@
 </div>
 
 <style>
+  .menu-open { position: relative; z-index: 10; }
   .cb-add-group {
     padding: 8px;
     border-bottom: 1px solid var(--hair);
