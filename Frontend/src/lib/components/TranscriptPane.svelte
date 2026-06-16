@@ -1,9 +1,8 @@
 <script>
   import Icon from '$lib/Icon.svelte';
   import Waveform from './Waveform.svelte';
-  import QuickCodeMenu from './QuickCodeMenu.svelte';
   import { app, codeColor, fmtTime } from '$lib/state.svelte.js';
-  import { getTranscript, updateTranscript } from '$lib/api.js';
+  import { getTranscript, updateTranscript, saveCodebook } from '$lib/api.js';
 
   let playing = $state(false);
   let progress = $state(0);
@@ -18,10 +17,8 @@
   /** @type {{ id: string, speaker: string, spk: string, ts: string, text: string }[]} */
   let editDraft = $state([]);
 
-  /** @type {{ x: number, y: number } | null} */
-  let qcode = $state(null);
-  /** @type {{ turnId: string, segStart: number, segEnd: number } | null} */
-  let currentSelection = $state(null);
+  /** @type {string | null} */
+  let dragOverTurnId = $state(null);
 
   let activeFile = $derived(app.files.find((f) => f.id === app.activeFile));
 
@@ -36,6 +33,26 @@
   let isAudio = $derived(activeFile?.type === 'mp3');
   let audioSrc = $derived(isAudio && app.activeFile ? `/api/files/${app.activeFile}/audio` : null);
   let title = $derived(activeFile?.name?.replace(/\.[^.]+$/, '') ?? 'Select a file');
+
+  // Migrate legacy seg.code (single string) → turn.codes (array) on load.
+  function normalizeTurn(turn) {
+    if (turn.codes !== undefined) return turn;
+    const legacyCodes = [...new Set(turn.segments.map((s) => s.code).filter(Boolean))];
+    return {
+      ...turn,
+      codes: legacyCodes,
+      segments: turn.segments.map(({ code, ...rest }) => rest)
+    };
+  }
+
+  function getCodeName(codeId) {
+    for (const g of app.codebook) {
+      for (const c of g.children) {
+        if (c.id === codeId) return c.name;
+      }
+    }
+    return codeId;
+  }
 
   function seekToTs(ts) {
     const parts = ts.split(':').map(Number);
@@ -71,7 +88,7 @@
 
     getTranscript(fid)
       .then((turns) => {
-        transcript = turns;
+        transcript = turns.map(normalizeTurn);
         noTranscript = turns.length === 0;
       })
       .catch(() => { noTranscript = true; })
@@ -88,7 +105,7 @@
   // Scroll to a cited turn when requested by app.cite()
   $effect(() => {
     const turnId = app.pendingTurnScroll;
-    const _t = transcript; // reactive dependency — re-runs after transcript loads
+    const _t = transcript;
     if (!turnId || loading) return;
     queueMicrotask(() => {
       const el = document.querySelector(`[data-turn-id="${turnId}"]`);
@@ -110,71 +127,59 @@
 
   function onEnded() { playing = false; }
 
-  function onSelect() {
-    const sel = window.getSelection?.();
-    if (!sel || sel.isCollapsed) { qcode = null; return; }
-
-    const range = sel.getRangeAt(0);
-    const startEl = range.startContainer.nodeType === 3
-      ? range.startContainer.parentElement
-      : /** @type {Element} */ (range.startContainer);
-    const endEl = range.endContainer.nodeType === 3
-      ? range.endContainer.parentElement
-      : /** @type {Element} */ (range.endContainer);
-
-    const turnEl = startEl?.closest?.('[data-turn-id]');
-    if (!turnEl) { qcode = null; return; }
-
-    const turnId = turnEl.getAttribute('data-turn-id') ?? '';
-    const segStart = parseInt(startEl?.closest?.('[data-seg-idx]')?.getAttribute('data-seg-idx') ?? '0');
-    const segEnd = parseInt(endEl?.closest?.('[data-seg-idx]')?.getAttribute('data-seg-idx') ?? String(segStart));
-
-    currentSelection = { turnId, segStart, segEnd: Math.max(segStart, segEnd) };
-
-    const rect = range.getBoundingClientRect();
-    if (rect.width > 4) qcode = { x: rect.left + rect.width / 2, y: rect.bottom + 8 };
+  function updateCodeCounts(updatedTranscript) {
+    const counts = {};
+    for (const turn of updatedTranscript) {
+      for (const codeId of (turn.codes ?? [])) {
+        counts[codeId] = (counts[codeId] ?? 0) + 1;
+      }
+    }
+    const updatedBook = app.codebook.map((g) => {
+      const children = g.children.map((c) => ({ ...c, count: counts[c.id] ?? 0 }));
+      return { ...g, children, count: children.reduce((n, c) => n + c.count, 0) };
+    });
+    app.codebook = updatedBook;
+    saveCodebook(updatedBook).catch((e) => app.toast(`Codebook save failed: ${e.message}`));
   }
 
-  function applyCode(codeId) {
-    if (!currentSelection || !app.activeFile) { closeQcode(); return; }
-    const { turnId, segStart, segEnd } = currentSelection;
-
+  function applyCodeToTurn(turnId, codeId) {
+    if (!app.activeFile) return;
     const updated = transcript.map((turn) => {
       if (turn.id !== turnId) return turn;
-      return {
-        ...turn,
-        segments: turn.segments.map((seg, i) =>
-          i >= segStart && i <= segEnd ? { ...seg, code: codeId } : seg
-        )
-      };
+      if ((turn.codes ?? []).includes(codeId)) return turn;
+      return { ...turn, codes: [...(turn.codes ?? []), codeId] };
     });
-
     transcript = updated;
     updateTranscript(app.activeFile, updated).catch((e) => app.toast(`Save failed: ${e.message}`));
-    closeQcode();
+    updateCodeCounts(updated);
   }
 
-  function newCodeFromSelection() {
-    const name = prompt('New code name:');
-    if (!name?.trim()) { closeQcode(); return; }
-    const group = app.codebook[0];
-    if (!group) { app.toast('Create a code group first.'); closeQcode(); return; }
-    const newCode = { id: `c_${Date.now()}`, name: name.trim(), color: group.color, count: 0, desc: '' };
-    app.codebook = app.codebook.map((g) =>
-      g.id === group.id ? { ...g, children: [...g.children, newCode] } : g
-    );
-    applyCode(newCode.id);
+  function removeCodeFromTurn(turnId, codeId) {
+    if (!app.activeFile) return;
+    const updated = transcript.map((turn) => {
+      if (turn.id !== turnId) return turn;
+      return { ...turn, codes: (turn.codes ?? []).filter((id) => id !== codeId) };
+    });
+    transcript = updated;
+    updateTranscript(app.activeFile, updated).catch((e) => app.toast(`Save failed: ${e.message}`));
+    updateCodeCounts(updated);
   }
 
-  function handleSuggest() {
-    closeQcode();
-    app.toast('Use "Suggest codes" in the Codebook pane.', 'info');
+  function onDragOver(e, turnId) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    dragOverTurnId = turnId;
   }
 
-  function closeQcode() {
-    qcode = null;
-    currentSelection = null;
-    window.getSelection?.()?.removeAllRanges();
+  function onDragLeave(e, turnId) {
+    if (dragOverTurnId === turnId) dragOverTurnId = null;
+  }
+
+  function onDrop(e, turnId) {
+    e.preventDefault();
+    dragOverTurnId = null;
+    const codeId = e.dataTransfer.getData('application/x-qualscope-code');
+    if (codeId) applyCodeToTurn(turnId, codeId);
   }
 
   function startEdit() {
@@ -230,7 +235,7 @@
       <div class="tr-meta">
         {#if activeFile}
           <span><span class="k">file</span> {activeFile.meta}</span>
-          <span><span class="k">codes</span> {transcript.reduce((n, t) => n + t.segments.filter((s) => s.code).length, 0)}</span>
+          <span><span class="k">codes</span> {transcript.reduce((n, t) => n + (t.codes?.length ?? 0), 0)}</span>
           <span><span class="k">turns</span> {transcript.length}</span>
         {/if}
       </div>
@@ -263,10 +268,6 @@
           <button class="chip" onclick={cancelEdit} disabled={saving}>cancel</button>
         {:else}
           <button class="chip" onclick={startEdit} disabled={loading || noTranscript}>edit</button>
-          <!-- Query function traken out for now
-           <button class="chip">find</button>         
-          -->
-
         {/if}
       </div>
     </div>
@@ -309,7 +310,15 @@
     {:else}
       <div class="tr-body">
         {#each transcript as turn (turn.id)}
-          <div class="tr-turn {turn.spk}" data-turn-id={turn.id}>
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="tr-turn {turn.spk}"
+            class:drop-target={dragOverTurnId === turn.id}
+            data-turn-id={turn.id}
+            ondragover={(e) => onDragOver(e, turn.id)}
+            ondragleave={(e) => onDragLeave(e, turn.id)}
+            ondrop={(e) => onDrop(e, turn.id)}
+          >
             <div class="meta">
               <span class="spk">{turn.speaker}</span>
               <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -320,29 +329,39 @@
                 style="cursor:pointer;"
               >{turn.ts}</span>
             </div>
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div class="tr-text" onmouseup={onSelect}>
+            <div class="tr-text">
               <p>
                 {#each turn.segments as seg, si}
-                  {#if seg.code}
-                    {@const isActive = app.activeCode === seg.code}
-                    <span
-                      class="code c{codeColor(app.codebook, seg.code)}"
-                      class:active={isActive}
-                      data-seg-idx={si}
-                      onmouseenter={() => (app.activeCode = seg.code)}
-                      onmouseleave={() => { if (app.activeCode === seg.code) app.activeCode = null; }}
-                      role="mark"
-                    >{seg.t}{#if seg.cid}<span
-                        class="cite-anchor"
-                        class:flash={app.citeFlash === seg.cid}
-                        data-cite={seg.cid}
-                      >[{seg.cid}]</span>{/if}</span>
-                  {:else}
-                    <span data-seg-idx={si}>{seg.t}</span>
-                  {/if}
+                  <span data-seg-idx={si}>{seg.t}{#if seg.cid}<span
+                    class="cite-anchor"
+                    class:flash={app.citeFlash === seg.cid}
+                    data-cite={seg.cid}
+                  >[{seg.cid}]</span>{/if}</span>
                 {/each}
               </p>
+              {#if turn.codes?.length}
+                <div class="turn-codes">
+                  {#each turn.codes as codeId}
+                    {@const color = codeColor(app.codebook, codeId)}
+                    {@const isActive = app.activeCode === codeId}
+                    <span
+                      class="turn-code-badge c{color}"
+                      class:active={isActive}
+                      onmouseenter={() => (app.activeCode = codeId)}
+                      onmouseleave={() => { if (app.activeCode === codeId) app.activeCode = null; }}
+                      role="mark"
+                    >
+                      <span class="badge-dot"></span>
+                      {getCodeName(codeId)}
+                      <button
+                        class="badge-remove"
+                        onclick={(e) => { e.stopPropagation(); removeCodeFromTurn(turn.id, codeId); }}
+                        title="Remove code"
+                      >✕</button>
+                    </span>
+                  {/each}
+                </div>
+              {/if}
             </div>
           </div>
         {/each}
@@ -354,17 +373,6 @@
       </div>
     {/if}
   </div>
-
-  {#if qcode}
-    <QuickCodeMenu
-      codebook={app.codebook}
-      pos={qcode}
-      onclose={closeQcode}
-      onapply={applyCode}
-      onnewcode={newCodeFromSelection}
-      onsuggest={handleSuggest}
-    />
-  {/if}
 
   <audio
     bind:this={audioEl}

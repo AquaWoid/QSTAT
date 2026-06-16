@@ -223,7 +223,10 @@
   <div class="pane-hd">
     <span class="lbl">Codebook · {totalCount}</span>
     <div class="actions">
-      <button class="iconbtn" title="Sort"><Icon name="sort" /></button>
+    <!-- Sort disabled for now, might reintroduce later
+       <button class="iconbtn" title="Sort"><Icon name="sort" /></button>     
+    -->
+
       <button class="iconbtn" title="New group" onclick={() => { addingGroup = !addingGroup; }}>
         <Icon name="plus" />
       </button>
@@ -322,6 +325,12 @@
                 <div
                   class="cb-code"
                   class:active
+                  draggable="true"
+                  ondragstart={(e) => {
+                    e.dataTransfer.effectAllowed = 'copy';
+                    e.dataTransfer.setData('application/x-qualscope-code', c.id);
+                    e.dataTransfer.setData('text/plain', c.id);
+                  }}
                   onmouseenter={() => (app.activeCode = c.id)}
                   onmouseleave={() => { if (app.activeCode === c.id) app.activeCode = null; }}
                 >
@@ -477,6 +486,8 @@
   .cb-dropdown button.danger:hover { background: oklch(0.6 0.15 30 / 0.1); }
   .del-code { opacity: 0; font-size: 9px; color: var(--ink-4); }
   .cb-code:hover .del-code { opacity: 1; }
+  .cb-code[draggable="true"] { cursor: grab; }
+  .cb-code[draggable="true"]:active { cursor: grabbing; }
   .cb-proposed {
     margin-top: 8px;
     border-top: 1px solid var(--hair);

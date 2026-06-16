@@ -495,60 +495,61 @@ html[data-theme="dark"] .ctx-badge.proc { color: oklch(0.78 0.13 80); }
   100% { background: transparent; color: var(--accent); }
 }
 
-/* Hover quick-code menu */
-.qcode {
-  position: fixed;
-  z-index: 100;
-  background: var(--bg-elev);
-  border: 1px solid var(--hair);
-  border-radius: 5px;
-  box-shadow: 0 8px 28px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.06);
-  padding: 4px;
-  min-width: 200px;
-  font-size: 12px;
-  animation: pop 0.12s ease-out;
+/* Drop target highlight — turn receives a dragged code */
+.tr-turn.drop-target .tr-text {
+  outline: 2px dashed var(--accent);
+  outline-offset: 5px;
+  border-radius: 4px;
 }
-html[data-theme="dark"] .qcode {
-  box-shadow: 0 8px 28px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.4);
+
+/* Per-turn code badges */
+.turn-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 7px;
 }
-@keyframes pop {
-  from { opacity: 0; transform: translateY(-2px) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
-.qcode .hd {
-  padding: 4px 8px 6px;
-  font-family: var(--f-mono); font-size: 9.5px;
-  text-transform: uppercase; letter-spacing: 0.1em;
-  color: var(--ink-4);
-}
-.qcode .item {
-  display: grid;
-  grid-template-columns: 14px 1fr auto;
-  gap: 8px; align-items: center;
-  padding: 5px 8px; border-radius: 3px;
+.turn-code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  padding: 2px 5px 2px 6px;
+  border-radius: 3px;
+  background: hsl(var(--c) / 0.10);
+  border: 1px solid hsl(var(--c) / 0.28);
+  color: var(--ink-2);
   cursor: default;
+  transition: background 0.12s ease;
 }
-.qcode .item:hover { background: var(--accent-2); color: var(--accent); }
-.qcode .item .sw {
-  width: 9px; height: 9px; border-radius: 2px;
-  background: hsl(var(--c) / 0.7);
+.turn-code-badge:hover { background: hsl(var(--c) / 0.20); }
+.turn-code-badge.active { background: hsl(var(--c) / 0.25); border-color: hsl(var(--c) / 0.5); }
+.turn-code-badge.c1 { --c: var(--code-1); }
+.turn-code-badge.c2 { --c: var(--code-2); }
+.turn-code-badge.c3 { --c: var(--code-3); }
+.turn-code-badge.c4 { --c: var(--code-4); }
+.turn-code-badge.c5 { --c: var(--code-5); }
+.turn-code-badge.c6 { --c: var(--code-6); }
+.badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: hsl(var(--c) / 0.75);
+  flex-shrink: 0;
 }
-.qcode .item .kbd {
-  font-family: var(--f-mono); font-size: 9px;
-  color: var(--ink-4); padding: 1px 4px;
-  border: 1px solid var(--hair); border-radius: 2px;
+.badge-remove {
+  background: none;
+  border: none;
+  padding: 0 0 0 2px;
+  color: var(--ink-4);
+  font-size: 8px;
+  cursor: pointer;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.1s;
 }
-.qcode .sep { height: 1px; background: var(--hair); margin: 4px 6px; }
-.qcode .new {
-  padding: 5px 8px; border-radius: 3px;
-  color: var(--ink-3);
-  display: flex; align-items: center; gap: 8px;
-}
-.qcode .new:hover { background: var(--bg-sunk); color: var(--ink); }
-.qcode .new::before {
-  content: "+"; width: 14px; text-align: center;
-  font-weight: 600; color: var(--ink-4);
-}
+.turn-code-badge:hover .badge-remove { opacity: 1; }
+.badge-remove:hover { color: var(--ink); }
 
 /* ───────────────────────── Codebook ───────────────────────── */
 .cb-search {
