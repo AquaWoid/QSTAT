@@ -1,11 +1,12 @@
 #Retrieval
 import json, re
+from pathlib import Path
 import requests
 import chromadb
 
 #chroma_client_http = chromadb.HttpClient(host="chroma", port=8000)   #Docker Version - Will use that again once docker compose is re-implemented
-chroma_client_http = chromadb.HttpClient(host="localhost", port=8080)
-
+#chroma_client_http = chromadb.HttpClient(host="localhost", port=8080)
+chroma_client_http = chromadb.PersistentClient(Path("UserData/default/vectors"))
 
 def retrieve_chunks(user_id: str, query: str, n: int = 8) -> list:
     """
@@ -119,5 +120,5 @@ def debug_retrieve():
     unique_roots = sorted({id_.split("_")[0] for id_ in ids})
 
     print(unique_roots)
-debug_retrieve()
+#debug_retrieve()
 # print(retrieve_context("testuser", "software", "what is Atrain?"))

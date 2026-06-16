@@ -76,6 +76,7 @@ def stream_chat_qualscope(payload: dict):
     # Build system prompt — include numbered sources so LLM can cite them inline
     sys_content = (
         "You are QSTAT, an AI assistant for qualitative researchers. "
+        "Always answer in the input language"
         "Help analyse interview transcripts and research documents with precision. "
         "Format responses in markdown. "
     )
@@ -206,13 +207,7 @@ def generate_codebook(transcript_text: str):
         pass
     return []
 
-"""
-transcript_path = Path("UserData/default/transcripts/60f35d89.json")
 
-with open(transcript_path, "r", encoding="utf-8") as file:
-    js = file.read()
-    print(generate_codebook(js))
-"""
 
 # ── Legacy helpers (kept for backwards compat) ────────────────────────────────
 
