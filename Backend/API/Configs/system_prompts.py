@@ -1,6 +1,4 @@
-def get_codebook_prompt(min_codes : int, max_codes : int):
-
-  codebook_structure = """
+codebook_structure = """
   [
     {
       "id": "tc1",
@@ -109,6 +107,10 @@ def get_codebook_prompt(min_codes : int, max_codes : int):
 """
 
 
+
+def get_codebook_prompt(min_codes : int, max_codes : int):
+
+
   codebook_creation = f"""
 
   You are a structured data extraction system.
@@ -158,6 +160,58 @@ def get_codebook_prompt(min_codes : int, max_codes : int):
   return codebook_creation
 
 
-debug_japanese_recipes_german = """
-    Du bist ein Chefkoch für Japanische Küche, wenn dich ein Nutzer nach einem Rezept Fragt versuchst du ihm die bestmöglichen Vorschläge zu machen. Wichtig ist, dass kein Gluten verwendet werden darf
-"""
+
+def get_deductive_codebook_prompt(min_codes : int, max_codes : int):
+
+
+  deductive_codebook_creation = f"""
+
+  You are a system for creating code systems for qualitative research. 
+
+  The way you the system must tightly follow Phillip Mayring's deduktive category application (deduktive Kategorienanwendung)
+
+  Your task is to generate a valid JSON object representing a qualitative codebook based on an user input research question and 10 relevant papers to that question.
+
+  You MUST follow these rules strictly:
+
+  1. Output ONLY valid JSON. No explanations, no comments, no extra text before or after.
+  2. The JSON must be syntactically correct and parsable.
+  3. Use double quotes for all keys and string values.
+  4. Do not include trailing commas.
+  5. Do not include undefined or null fields. Always fill fields with meaningful content.
+  6. Keep all text in the same language as the input.
+
+  ### JSON Structure
+
+  The output must follow exactly this schema:
+
+  {codebook_structure}
+
+
+  ### Coding Guidelines
+
+  - Identify meaningful themes, concepts, or categories in the source material.
+  - Create clear, concise, and descriptive code names.
+  - Group related codes under a parent code using "subcodes".
+  - Only create "subcodes" if there is a clear hierarchical relationship.
+  - Avoid duplication.
+  - Keep definitions precise and analytical, not vague.
+  - Use short excerpts from the text as examples.
+  - Always cite correctly if you have used a paper for a category, the citation belongs in the description.
+  - "notes" can include context, ambiguity, or coding guidance.
+  - Use sequental and unique IDs following the provided schema.
+
+  ### Output Constraints
+
+  - Minimum {min_codes} codes.
+  - Maximum {max_codes} codes.
+  - Each code should have at least 1 meaningful sentence in "definition".
+  - Use subcodes where appropriate, but do not force them.
+
+  Remember:
+  Output ONLY the valid JSON object. Nothing else.
+  If the output is not in the input language translate it.
+  """
+
+  return deductive_codebook_creation
+

@@ -1,6 +1,20 @@
 import re, sys, os, json
+from pathlib import Path
 
-cloud_model_path = os.path.join(sys.path[0], "external_models.json")
+
+
+#cloud_model_path = os.path.join(sys.path[0], "models.json")
+cloud_model_path = Path("API/LLM/models.json")
+
+
+def get_available_models():
+    with open(cloud_model_path, "r", encoding="utf-8") as f:
+        models = json.loads(f.read())
+        return models
+
+
+
+#legacy function
 
 def list_local_models():
     model_list = os.listdir(r"../.cache/huggingface/hub")
@@ -13,12 +27,5 @@ def list_local_models():
 
     return model_list_cleaned
 
-def list_cloud_models():
 
-    with open(cloud_model_path, "r", encoding="utf-8") as f:
-        models = json.loads(f.read())
-        for m in models:
-            print(m.get("identifier"))
-
-list_cloud_models()
-print(list_local_models())
+    

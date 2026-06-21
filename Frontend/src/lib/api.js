@@ -129,3 +129,25 @@ export async function suggestCodes(transcriptId, existing) {
   if (!res.ok) throw new Error(`suggest failed: ${res.status}`);
   return res.json();
 }
+
+export async function fetchModels() {
+  const res = await fetch('/api/models');
+  if (!res.ok) throw new Error(`models failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchConfig() {
+  const res = await fetch('/api/config');
+  if (!res.ok) throw new Error(`config failed: ${res.status}`);
+  return res.json();
+}
+
+export async function patchConfig(patch) {
+  const res = await fetch('/api/config', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(patch)
+  });
+  if (!res.ok) throw new Error(`config save failed: ${res.status}`);
+  return res.json();
+}

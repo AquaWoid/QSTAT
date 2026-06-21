@@ -18,13 +18,42 @@ load_dotenv(env_path)
 hostname = "localhost"
 or_key = os.getenv("OR_KEY")
 
-VLLM_URL = "https://openrouter.ai/api/v1/chat/completions"
-VLLM_MODEL = "deepseek/deepseek-v4-flash"
+LLM_URL = "https://openrouter.ai/api/v1/chat/completions"
+LLM_MODEL = "deepseek/deepseek-v4-flash"
 
 
 #Local LLM Deployment - Will be re-added later
-#VLLM_MODEL = "Qwen/Qwen3-14B-AWQ"
-#VLLM_URL = f"http://{hostname}:8000/v1/chat/completions"
+#LLM_MODEL = "Qwen/Qwen3-14B-AWQ"
+#LLM_URL = f"http://{hostname}:8000/v1/chat/completions"
+
+
+def set_model(model_identifier: str, mode: str):
+
+    if(mode == "cloud"):
+        LLM_URL = "https://openrouter.ai/api/v1/chat/completions"
+    elif(mode == "local"):
+        LLM_URL = f"http://{hostname}:8000/v1/chat/completions"
+
+    LLM_MODEL = model_identifier
+
+
+def _get_active_model() -> tuple:
+    """Read the user-selected model from configs.json. Returns (model_id, url, headers)."""
+    import API.storage as storage
+    cfg = storage.load_config()
+    active = cfg.get("activeModel", {})
+    model_id = active.get("identifier") or LLM_MODEL
+    kind = active.get("kind", "cloud")
+    url = f"http://{hostname}:8000/v1/chat/completions" if kind == "local" else LLM_URL
+    headers = {"Authorization": f"Bearer {or_key}"} if kind != "local" else {}
+    return model_id, url, headers
+
+
+def resolve_response_message(response):
+    content = response.json()["choices"][0]["message"]["content"]
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    message = re.search(r"\[.*\]", content, re.DOTALL)
+    return message
 
 
 # QualScope SSE streaming 
@@ -37,11 +66,24 @@ def stream_chat_qualscope(payload: dict):
       data: {"type":"cite","value":{...}}\n\n
       data: {"type":"done"}\n\n
     """
-    print(payload.get("model"))
 
     messages = payload.get("messages", [])
     print("MESSAGES:: ", messages)
     rag_cfg = payload.get("rag", {"on": False, "scope": "all"})
+
+    _cfg_model, _cfg_url, _cfg_auth = _get_active_model()
+    model_identifier = payload.get("model") or _cfg_model
+    if "modelKind" in payload:
+        kind = payload["modelKind"]
+        url = f"http://{hostname}:8000/v1/chat/completions" if kind == "local" else LLM_URL
+        auth = {} if kind == "local" else {"Authorization": f"Bearer {or_key}"}
+    else:
+        url, auth = _cfg_url, _cfg_auth
+    req_headers = {
+        "Content-Type": "application/json",
+        "Accept": "text/event-stream",
+        **auth,
+    }
 
     cite_id = max(100, int(payload.get("nextCiteId", 100)))
     retrieved_chunks = []
@@ -95,7 +137,7 @@ def stream_chat_qualscope(payload: dict):
     print(full_messages)
 
     req_data = json.dumps({
-        "model": VLLM_MODEL,
+        "model": model_identifier,
         "messages": full_messages,
         "stream": True,
         "chat_template_kwargs": {"enable_thinking": False},
@@ -103,10 +145,10 @@ def stream_chat_qualscope(payload: dict):
 
     try:
         request = urllib.request.Request(
-            VLLM_URL,
+            url,
             data=req_data,
             method="POST",
-            headers={"Content-Type": "application/json", "Accept": "text/event-stream",  "Authorization": f"Bearer {or_key}"},
+            headers=req_headers,
         )
         buf = ""
         with urllib.request.urlopen(request, timeout=120) as resp:
@@ -138,9 +180,10 @@ def stream_chat_qualscope(payload: dict):
     yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
 
-# ── Code suggestion ───────────────────────────────────────────────────────────
+# Code suggestion
 
 def suggest_codes(transcript_text: str, existing_names: list) -> list:
+    model_id, url, auth = _get_active_model()
     existing_str = ", ".join(existing_names[:40]) if existing_names else "none"
     prompt = (
         f"Transcript excerpt:\n{transcript_text}\n\n"
@@ -153,12 +196,18 @@ def suggest_codes(transcript_text: str, existing_names: list) -> list:
         "No trailing commas, no explanation."
     )
 
+    print(
+        "\n----------------CODE SUGGEST----------------------\n\n",
+        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Prompt: ", prompt, "\n\n",
+        "----------------CODE SUGGEST----------------------\n"
+    )
+
     try:
         response = requests.post(
-            VLLM_URL,
-            headers={"Authorization": f"Bearer {or_key}"},
+            url,
+            headers=auth,
             json={
-                "model": VLLM_MODEL,
+                "model": model_id,
                 "messages": [
                     {"role": "system", "content": "You are a qualitative research assistant. Output only valid JSON."},
                     {"role": "user", "content": prompt},
@@ -178,16 +227,51 @@ def suggest_codes(transcript_text: str, existing_names: list) -> list:
     return []
 
 
-def generate_codebook(transcript_text: str):
+def generate_deductive_codebook(research_question: str):
+    model_id, url, auth = _get_active_model()
+    prompt = "Research Question: " + research_question
+    print(
+        "\n----------------DEDUCTIVE CODEBOOK----------------------\n\n",
+        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Prompt: ", prompt, "\n\n",
+        "----------------DEDUCTIVE CODEBOOK----------------------\n"
+    )
 
+    try:
+        response = requests.post(
+            url,
+            headers=auth,
+            json={
+                "model": model_id,
+                "messages": [
+                    {"role": "system", "content": system_prompts.get_deductive_codebook_prompt(5,15)},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            timeout=60,
+        )
+        message = resolve_response_message(response)
+        if message:
+            print("Codebook Output: ", message.group(0))
+            return json.loads(message.group(0))
+    except Exception:
+        pass
+    return []
+
+
+
+
+def generate_codebook(transcript_text: str):
+    model_id, url, auth = _get_active_model()
     prompt = "Input Text: " + transcript_text
 
     try:
         response = requests.post(
-            VLLM_URL,
-            headers={"Authorization": f"Bearer {or_key}"},
+            url,
+            headers=auth,
             json={
-                "model": VLLM_MODEL,
+                "model": model_id,
                 "messages": [
                     {"role": "system", "content": system_prompts.get_codebook_prompt(5,15)},
                     {"role": "user", "content": prompt},
@@ -209,7 +293,41 @@ def generate_codebook(transcript_text: str):
 
 
 
-# ── Legacy helpers (kept for backwards compat) ────────────────────────────────
+
+    print(
+        "\n----------------GENERATE CODEBOOK----------------------\n\n",
+        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Prompt: ", prompt, "\n\n",
+        "----------------GENERATE CODEBOOK----------------------\n"
+    )
+
+    try:
+        response = requests.post(
+            url,
+            headers=auth,
+            json={
+                "model": model_id,
+                "messages": [
+                    {"role": "system", "content": system_prompts.get_codebook_prompt(5,15)},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            timeout=60,
+        )
+        content = response.json()["choices"][0]["message"]["content"]
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        m = re.search(r"\[.*\]", content, re.DOTALL)
+        if m:
+            print("Codebook Output: ", m.group(0))
+            return json.loads(m.group(0))
+    except Exception:
+        pass
+    return []
+
+
+
+# Legacy helpers (kept for backwards compat) 
 
 def resolve_system_prompt(mode: str):
     if mode == "recipes":
@@ -223,10 +341,10 @@ def resolve_system_prompt(mode: str):
 
 async def resolve_prompt(prompt: str):
     resp = requests.post(
-        VLLM_URL,
+        LLM_URL,
         headers={"Content-Type": "application/json"},
         json={
-            "model": VLLM_MODEL,
+            "model": LLM_MODEL,
             "messages": [
                 {"role": "system", "content": system_prompts.codebook_creation},
                 {"role": "user", "content": prompt},
@@ -240,13 +358,13 @@ async def resolve_prompt(prompt: str):
 def resolve_prompt_with_context(user_id: str, subject: str, query: str, enable_thinking: bool = False):
     def stream():
         req_data = json.dumps({
-            "model": VLLM_MODEL,
+            "model": LLM_MODEL,
             "messages": RAG.retrieve_context(user_id, subject, query),
             "stream": True,
             "chat_template_kwargs": {"enable_thinking": enable_thinking},
         }).encode("utf-8")
         request = urllib.request.Request(
-            VLLM_URL, data=req_data, method="POST",
+            LLM_URL, data=req_data, method="POST",
             headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
         )
         with urllib.request.urlopen(request, timeout=120) as resp:
@@ -262,7 +380,7 @@ def resolve_prompt_with_context(user_id: str, subject: str, query: str, enable_t
 def resolve_prompt_realtime(payload: dict):
     def stream():
         req_data = json.dumps({
-            "model": VLLM_MODEL,
+            "model": LLM_MODEL,
             "messages": [
                 {"role": "system", "content": f"{resolve_system_prompt(payload.get('mode', ''))}"},
             ] + payload["messages"],
@@ -270,7 +388,7 @@ def resolve_prompt_realtime(payload: dict):
             "chat_template_kwargs": {"enable_thinking": payload.get("thinking", False)},
         }).encode("utf-8")
         request = urllib.request.Request(
-            VLLM_URL, data=req_data, method="POST",
+            LLM_URL, data=req_data, method="POST",
             headers={"Content-Type": "application/json", "Accept": "text/event-stream"},
         )
         with urllib.request.urlopen(request, timeout=120) as resp:

@@ -6,8 +6,8 @@
   import SourcesUsed from './SourcesUsed.svelte';
   import { app } from '$lib/state.svelte.js';
 
-  /** @type {{ messages: Array<{role:string,content:string}>, model: string, rag: {on:boolean,scope:string}, onDone?: (citeIds:number[], text:string) => void }} */
-  let { messages, model, rag, onDone } = $props();
+  /** @type {{ messages: Array<{role:string,content:string}>, model: string, modelKind?: string, rag: {on:boolean,scope:string}, onDone?: (citeIds:number[], text:string) => void }} */
+  let { messages, model, modelKind = 'cloud', rag, onDone } = $props();
 
   let tokens = $state('');
   let citeIds = $state(/** @type {number[]} */ ([]));
@@ -16,6 +16,7 @@
 
   const _messages = messages;
   const _model = model;
+  const _modelKind = modelKind;
   const _rag = rag;
 
   onMount(() => {
@@ -25,7 +26,7 @@
 
     (async () => {
       try {
-        for await (const ev of streamChat({ messages: _messages, model: _model, rag: _rag, nextCiteId })) {
+        for await (const ev of streamChat({ messages: _messages, model: _model, modelKind: _modelKind, rag: _rag, nextCiteId })) {
           if (ev.type === 'token') tokens += ev.value;
           else if (ev.type === 'cite') {
             app.registerCite(ev.value.id, ev.value);

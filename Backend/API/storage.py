@@ -18,6 +18,7 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
 FILES_JSON = BASE_DIR / "files.json"
 CODEBOOK_JSON = BASE_DIR / "codebook.json"
+CONFIGS_JSON = BASE_DIR / "configs.json"
 
 # In-memory async-job tracker: {jobId: {status, progress, fileId, error?}}
 _jobs: dict = {}
@@ -149,6 +150,23 @@ def delete_code(code_id: str) -> bool:
             save_codebook(book)
             return True
     return False
+
+
+# ── Config ───────────────────────────────────────────────────────────────────
+
+DEFAULT_CONFIG: dict = {}
+
+
+def load_config() -> dict:
+    cfg = _rj(CONFIGS_JSON, None)
+    if cfg is None:
+        _wj(CONFIGS_JSON, DEFAULT_CONFIG)
+        return dict(DEFAULT_CONFIG)
+    return cfg
+
+
+def save_config(config: dict):
+    _wj(CONFIGS_JSON, config)
 
 
 # ── Jobs ─────────────────────────────────────────────────────────────────────

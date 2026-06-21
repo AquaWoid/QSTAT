@@ -6,6 +6,7 @@ import os, uuid
 import API.SST.speech_recognition as speech_recognition
 import API.LLM.inference as LLM
 import API.storage as storage
+from API.LLM.available_models import get_available_models
 
 app = FastAPI(title="QualScope API")
 
@@ -140,6 +141,25 @@ def chat(payload: dict):
     )
 
 
+@app.get("/models")
+def get_models():
+    return get_available_models()
+
+
+# ── Config ────────────────────────────────────────────────────────────────────
+
+@app.get("/config")
+def get_config():
+    return storage.load_config()
+
+
+@app.patch("/config")
+def patch_config(body: dict):
+    cfg = storage.load_config()
+    cfg.update(body)
+    storage.save_config(cfg)
+    return cfg
+
 # ── Codebook ──────────────────────────────────────────────────────────────────
 
 @app.get("/codebook")
@@ -185,6 +205,18 @@ def generate_codebook(body: dict):
     storage.save_codebook(result)
     print("saved codebook!!")
     return {"ok": True}
+
+@app.put("/codebook/deduktive")
+def generate_deductive_codebook(body: dict):
+    print("Generate Codebook Called!")
+    research_question = body.get("rq", "")
+    print("Transcript: ",  research_question)
+    result = LLM.generate_deductive_codebook(research_question)
+    print("Got Codebook Result: ", result)
+    storage.save_codebook(result)
+    print("saved codebook!!")
+    return {"ok": True}
+
 
 
 @app.patch("/codebook/{code_id}")

@@ -1,16 +1,47 @@
 <script>
-  import { tick } from 'svelte';
+  import { tick, onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
   import Message from './Message.svelte';
   import MessageStream from './MessageStream.svelte';
   import Citation from './Citation.svelte';
   import SourcesUsed from './SourcesUsed.svelte';
-  import { MODELS } from '$lib/data.js';
+  import { fetchModels, fetchConfig, patchConfig } from '$lib/api.js';
   import { app } from '$lib/state.svelte.js';
   import { parseBlocks, inlineHtml } from '$lib/markdown.js';
 
-  let model = $state(MODELS[0]);
+  /** @type {Array<{id:string, name:string, identifier:string, kind:string, desc:string}>} */
+  let models = $state([]);
+  let model = $state(/** @type {{id:string, name:string, identifier:string, kind:string, desc:string} | null} */ (null));
   let picker = $state(false);
+
+  onMount(async () => {
+    try {
+      const [data, cfg] = await Promise.all([fetchModels(), fetchConfig().catch(() => ({}))]);
+      const list = [];
+      for (const [kind, entries] of Object.entries(data)) {
+        for (const m of entries) {
+          list.push({
+            id: `${kind}-${m.identifier.replace(/[/.]/g, '-')}`,
+            name: m.name,
+            identifier: m.identifier,
+            kind,
+            desc: kind === 'local' ? 'local · vLLM' : `cloud · ${m.identifier.split('/')[0]}`
+          });
+        }
+      }
+      models = list;
+      const saved = cfg?.activeModel?.identifier;
+      model = (saved && list.find((m) => m.identifier === saved)) || list[0] || null;
+    } catch (e) {
+      console.error('[ChatPane] model load failed:', e);
+    }
+  });
+
+  function selectModel(m) {
+    model = m;
+    picker = false;
+    patchConfig({ activeModel: { identifier: m.identifier, kind: m.kind } }).catch(() => {});
+  }
   let input = $state('');
   let ragOn = $state(true);
   let ragScope = $state('all');
@@ -85,13 +116,13 @@
     <div
       class="model-picker"
       style="position:relative;"
-      onclick={() => (picker = !picker)}
+      onclick={() => models.length && (picker = !picker)}
       role="button"
       tabindex="0"
-      onkeydown={(e) => e.key === 'Enter' && (picker = !picker)}
+      onkeydown={(e) => e.key === 'Enter' && models.length && (picker = !picker)}
     >
-      <span class="badge {model.kind}">{model.kind}</span>
-      <span class="name">{model.name}</span>
+      <span class="badge {model?.kind ?? ''}">{model?.kind ?? '…'}</span>
+      <span class="name">{model?.name ?? 'loading…'}</span>
       <span class="caret"><Icon name="chev-down" /></span>
       {#if picker}
         <div
@@ -102,23 +133,19 @@
           tabindex="0"
         >
           <div class="hd">Model</div>
-          {#each MODELS as m (m.id)}
+          {#each models as m (m.id)}
             <div
               class="item"
-              onclick={() => { model = m; picker = false; }}
+              onclick={() => selectModel(m)}
               role="menuitem"
               tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && (model = m)}
+              onkeydown={(e) => e.key === 'Enter' && selectModel(m)}
             >
-              <span
-                class="badge {m.kind}"
-                style="font-family:var(--f-mono);font-size:8.5px;padding:1px 4px;border-radius:2px;letter-spacing:0.04em;text-transform:uppercase;width:auto;background:{m.kind==='local'?'oklch(0.50 0.10 150 / 0.13)':'oklch(0.50 0.13 250 / 0.13)'};color:{m.kind==='local'?'oklch(0.50 0.10 150)':'oklch(0.50 0.13 250)'};"
-              >{m.kind}</span>
-              <div style="display:flex;flex-direction:column;">
-                <span>{m.name}</span>
-                <span style="color:var(--ink-4);font-family:var(--f-mono);font-size:9.5px;">{m.desc}</span>
+              <span class="badge {m.kind}">{m.kind}</span>
+              <div class="item-info">
+                <span class="item-name">{m.name}</span>
+                <span class="item-desc">{m.desc}</span>
               </div>
-              <span></span>
             </div>
           {/each}
         </div>
@@ -140,20 +167,21 @@
     <div class="chat-body">
       {#each app.messages as msg (msg.id)}
         {#if msg.role === 'user'}
-          <Message role="user" who="RM" ts={msg.ts}>
+          <Message role="user" who="LW" ts={msg.ts}>
             {msg.content}
           </Message>
         {:else if msg.id === streamingId}
-          <Message role="assistant" who="QS" ts={msg.ts} model={model.name}>
+          <Message role="assistant" who="QS" ts={msg.ts} model={model?.name}>
             <MessageStream
               messages={streamMessages}
-              model={model.name}
+              model={model?.identifier ?? ''}
+              modelKind={model?.kind ?? 'cloud'}
               rag={{ on: ragOn, scope: ragScope }}
               onDone={onStreamDone}
             />
           </Message>
         {:else}
-          <Message role="assistant" who="QS" ts={msg.ts} model={model.name}>
+          <Message role="assistant" who="QS" ts={msg.ts} model={model?.name}>
             {#each parseBlocks(msg.content || '') as block}
               {#if block.kind === 'h3'}
                 <h3>{#each block.parts as p}{#if p.kind === 'cite'}<Citation id={p.id} />{:else}{@html inlineHtml(p.value)}{/if}{/each}</h3>
