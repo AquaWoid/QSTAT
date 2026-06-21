@@ -93,6 +93,14 @@ def get_audio(file_id: str):
     return FileResponse(str(path), media_type=media_type)
 
 
+@app.get("/files/{file_id}/pdf")
+def get_pdf(file_id: str):
+    path = storage.get_upload_path(file_id)
+    if not path or path.suffix.lower() != ".pdf":
+        raise HTTPException(404, "PDF file not found")
+    return FileResponse(str(path), media_type="application/pdf")
+
+
 # ── Transcribe ────────────────────────────────────────────────────────────────
 
 @app.post("/transcribe")

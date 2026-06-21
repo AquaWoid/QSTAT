@@ -31,7 +31,9 @@
 
   let totalSecs = $derived(parseDuration(activeFile?.meta));
   let isAudio = $derived(activeFile?.type === 'mp3');
+  let isPdf = $derived(activeFile?.type === 'pdf');
   let audioSrc = $derived(isAudio && app.activeFile ? `/api/files/${app.activeFile}/audio` : null);
+  let pdfSrc = $derived(isPdf && app.activeFile ? `/api/files/${app.activeFile}/pdf` : null);
   let title = $derived(activeFile?.name?.replace(/\.[^.]+$/, '') ?? 'Select a file');
 
   // Migrate legacy seg.code (single string) → turn.codes (array) on load.
@@ -273,19 +275,27 @@
     </div>
   </div>
 
-  <div class="pane-body">
+  <div class="pane-body" style={isPdf && pdfSrc ? 'overflow:hidden; padding:0;' : ''}>
     {#if loading}
       <div style="padding:32px; text-align:center; color:var(--ink-4); font-family:var(--f-mono); font-size:11px;">
         loading…
       </div>
     {:else if noTranscript}
-      <div style="padding:32px; text-align:center; color:var(--ink-4); font-family:var(--f-mono); font-size:11px;">
-        {#if isAudio}
+      {#if isPdf && pdfSrc}
+        <iframe
+          src={pdfSrc}
+          title={activeFile?.name ?? 'PDF'}
+          style="width:100%; height:100%; border:none; display:block;"
+        ></iframe>
+      {:else if isAudio}
+        <div style="padding:32px; text-align:center; color:var(--ink-4); font-family:var(--f-mono); font-size:11px;">
           No transcript yet — right-click the file to transcribe.
-        {:else}
+        </div>
+      {:else}
+        <div style="padding:32px; text-align:center; color:var(--ink-4); font-family:var(--f-mono); font-size:11px;">
           Document indexed for RAG — no transcript view.
-        {/if}
-      </div>
+        </div>
+      {/if}
     {:else if editing}
       <div class="tr-body">
         {#each editDraft as draft, i (draft.id)}
