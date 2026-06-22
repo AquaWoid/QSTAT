@@ -1,14 +1,16 @@
 #Data Handling and file parsing
 pandas
 numpy
-#pydf #python-docx - Using docling for now might reintroduce them later
 docling
 
-#ML
+#Generic ML
 transformers
 accelerate
+
+#Transcritpion
 openai-whisper 
 faster-whisper
+qwen-asr
 #pyannote.audio - TODO, solve version conflict with pytorch docker image 
 
 #API
@@ -25,7 +27,7 @@ tiktoken
 #rank-bm25
 httpx
 
-#DB - Will be reimplemented when Postgres is used
+#DB - Will be reimplemented in the future when Postgres is used for user management
 #sqlalchemy
 #alembic
 #asyncpg

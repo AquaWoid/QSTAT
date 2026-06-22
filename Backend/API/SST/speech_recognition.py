@@ -1,17 +1,80 @@
 import whisper
 import sys
 from faster_whisper import WhisperModel
-
-
-def initialize_qwen_asr():
-    model = ""
-    return model
+from qwen_asr import Qwen3ASRModel
+import torch
 
 def format_time(seconds):
     h = int(seconds // 3600)
     m = int((seconds % 3600) // 60)
     s = seconds % 60
     return f"{h:02}:{m:02}:{s:06.3f}"
+
+
+
+def transcribe_qwen(file):
+
+    model = Qwen3ASRModel.from_pretrained(
+        "Qwen/Qwen3-ASR-1.7B",
+        dtype=torch.bfloat16,
+        device_map="cuda:0",
+        # attn_implementation="flash_attention_2",
+        max_inference_batch_size=32, # Batch size limit for inference. -1 means unlimited. Smaller values can help avoid OOM.
+        max_new_tokens=16384, #128^2 # Maximum number of tokens to generate. Set a larger value for long audio input.
+        forced_aligner="Qwen/Qwen3-ForcedAligner-0.6B",
+        forced_aligner_kwargs=dict(
+            dtype=torch.bfloat16,
+            device_map="cuda:0",
+            # attn_implementation="flash_attention_2",
+        )
+    )
+
+    results = model.transcribe(
+        audio=str(file),
+        language=None, # can also be set to None for automatic language detection
+        return_time_stamps=True,
+    )
+
+    result = results[0]
+    items = list(result.time_stamps) if result.time_stamps else []
+
+    PAUSE_THRESHOLD = 0.5  # seconds gap between words to start a new segment
+
+    segments = []
+    if items:
+        current = [items[0]]
+        for item in items[1:]:
+            if item.start_time - current[-1].end_time > PAUSE_THRESHOLD:
+                segments.append({
+                    "start_raw": current[0].start_time,
+                    "end_raw": current[-1].end_time,
+                    "start_formatted": format_time(current[0].start_time),
+                    "end_formatted": format_time(current[-1].end_time),
+                    "text": " ".join(w.text for w in current).strip(),
+                })
+                current = [item]
+            else:
+                current.append(item)
+        segments.append({
+            "start_raw": current[0].start_time,
+            "end_raw": current[-1].end_time,
+            "start_formatted": format_time(current[0].start_time),
+            "end_formatted": format_time(current[-1].end_time),
+            "text": " ".join(w.text for w in current).strip(),
+        })
+
+    return {
+        "text": result.text,
+        "segments": segments,
+    }
+
+from pathlib import Path
+print(transcribe_qwen(Path("Backend/UserData/default/uploads/6c682ee8.mp3")))
+
+
+
+
+
 
 def transcribe_faster(file):
     print("starting transcription")
