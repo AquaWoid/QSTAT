@@ -83,10 +83,13 @@
       </label>
 
       <div class="sect">Show</div>
-      <label class="row">
+      <!--- Disabled for now due to causing UI stretching issues. 
+       <label class="row">
         <span>Project Context</span>
         <input type="checkbox" checked={t.showContext} oninput={(e) => set('showContext', e.currentTarget.checked)} />
-      </label>
+      </label>     
+      -->
+
       <label class="row">
         <span>Chat</span>
         <input type="checkbox" checked={t.showChat} oninput={(e) => set('showChat', e.currentTarget.checked)} />

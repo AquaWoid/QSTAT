@@ -23,5 +23,15 @@
       "name": "Qwen3 14b AWQ",
       "identifier": "Qwen/Qwen3-14B-AWQ"
     }
+  ],
+  "transcription": [
+    {
+      "name": "OpenAI Whisper",
+      "identifier": "faster-whisper"
+    },
+    {
+      "name": "Qwen3 ASR",
+      "identifier": "qwen-asr"
+    }
   ]
 }

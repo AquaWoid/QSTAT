@@ -208,7 +208,7 @@ def generate_codebook(body: dict):
 
 @app.put("/codebook/deduktive")
 def generate_deductive_codebook(body: dict):
-    print("Generate Codebook Called!")
+    print("Generate Codebook Deductive Called!")
     research_question = body.get("rq", "")
     print("Transcript: ",  research_question)
     result = LLM.generate_deductive_codebook(research_question)
@@ -258,8 +258,11 @@ def _transcribe_job(jid: str, fid: str, path: str):
 def _process_audio(fid: str, path: str):
     import RAG.vectorstore as vs
 
-    
-    result = speech_recognition.transcribe_faster(path)
+    cfg = storage.load_config()
+    if cfg.get("transcription_model") == "qwen-asr":
+        result = speech_recognition.transcribe_qwen(path)
+    else:
+        result = speech_recognition.transcribe_faster(path)
     segs = result["segments"]
     if not segs:
         storage.update_file(fid, {"status": "ok", "meta": "0:00 · transcribed", "progress": None})

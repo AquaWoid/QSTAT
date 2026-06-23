@@ -5,20 +5,13 @@ export const PROJECT = {
   name: 'QSTAT Frontend',
   current: 'Test Interview',
   files: [
-    { id: 'f1',  name: 'Interview 01 — Ramirez.mp3',     type: 'mp3', status: 'ok',    meta: '42:18 · transcribed' },
-    { id: 'f2',  name: 'Interview 02 — Chen.mp3',        type: 'mp3', status: 'ok',    meta: '38:04 · transcribed' },
-    { id: 'f3',  name: 'Interview 03 — Okafor.mp3',      type: 'mp3', status: 'ok',    meta: '51:30 · transcribed' },
-    { id: 'f4',  name: 'Interview 04 — Hartwell.mp3',    type: 'mp3', status: 'ok',    meta: '44:12 · transcribed' },
-    { id: 'f5',  name: 'Interview 05 — Vasquez.mp3',     type: 'mp3', status: 'ok',    meta: '47:55 · transcribed' },
-    { id: 'f6',  name: 'Interview 06 — Brand.mp3',       type: 'mp3', status: 'ok',    meta: '36:21 · transcribed' },
-    { id: 'f7',  name: 'Interview 12 — Aldana.mp3',      type: 'mp3', status: 'ok',    meta: '49:07 · transcribed' },
-    { id: 'f8',  name: 'Interview 13 — Park.mp3',        type: 'mp3', status: 'proc',  meta: 'transcribing… 64%', progress: 64 },
-    { id: 'f9',  name: 'Interview 14 — Daniels.mp3',     type: 'mp3', status: 'queue', meta: 'in queue' },
-    { id: 'f10', name: 'Consent — IRB-2024-118.pdf',     type: 'pdf', status: 'ok',    meta: '4 pp · 12 chunks' },
-    { id: 'f11', name: 'Interview protocol v3.docx',     type: 'doc', status: 'ok',    meta: '12 pp · 38 chunks' },
-    { id: 'f12', name: 'Sample frame.xlsx',              type: 'xls', status: 'ok',    meta: '3 sheets · 9 chunks' },
-    { id: 'f13', name: 'Prior coding — phase 1.pdf',     type: 'pdf', status: 'ok',    meta: '28 pp · 94 chunks' },
-    { id: 'f14', name: 'Field notes — site visits.docx', type: 'doc', status: 'ok',    meta: '18 pp · 51 chunks' }
+    { id: 'f1',  name: 'Interview 01 — Default.mp3',     type: 'mp3', status: 'ok',    meta: '42:18 · transcribed' },
+    { id: 'f2',  name: 'Interview 02 — Default2.mp3',        type: 'mp3', status: 'proc',  meta: 'transcribing… 64%', progress: 64 },
+    { id: 'f3',  name: 'Interview 03 — Default3.mp3',     type: 'mp3', status: 'queue', meta: 'in queue' },
+    { id: 'f4', name: 'Doc1.pdf',     type: 'pdf', status: 'ok',    meta: '4 pp · 12 chunks' },
+    { id: 'f5', name: 'Doc1.docx',     type: 'doc', status: 'ok',    meta: '12 pp · 38 chunks' },
+    { id: 'f6', name: 'Spreadsheet.xlsx',              type: 'xls', status: 'ok',    meta: '3 sheets · 9 chunks' },
+    { id: 'f7', name: 'Doc3.pdf',     type: 'pdf', status: 'ok',    meta: '28 pp · 94 chunks' },
   ]
 };
 

@@ -61,6 +61,9 @@ function createState() {
   // Toast notifications — array of {id, msg, kind}
   let toasts = $state(/** @type {Array<{id:number,msg:string,kind:'error'|'info'}>} */ ([]));
 
+  let researchQuestion = $state('');
+  let highlightRQ = $state(false);
+
   return {
     // ── Files ──────────────────────────────────────────────────────────────
     get files()     { return files; },
@@ -121,6 +124,12 @@ function createState() {
     dismissToast(id) {
       toasts = toasts.filter((t) => t.id !== id);
     },
+
+    // ── Research context ───────────────────────────────────────────────────
+    get researchQuestion()  { return researchQuestion; },
+    set researchQuestion(v) { researchQuestion = v; },
+    get highlightRQ()       { return highlightRQ; },
+    set highlightRQ(v)      { highlightRQ = v; },
 
     // ── Citation click ─────────────────────────────────────────────────────
     /** Click a citation chip — jumps to transcript turn or highlights file. */

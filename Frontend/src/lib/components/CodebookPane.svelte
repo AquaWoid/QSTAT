@@ -2,12 +2,12 @@
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
   import { app } from '$lib/state.svelte.js';
-  import { getCodebook, saveCodebook, suggestCodes, generateCodebook, getTranscript } from '$lib/api.js';
+  import { getCodebook, saveCodebook, generateCodebook, generateDeductiveCodebook, getTranscript } from '$lib/api.js';
 
   let query = $state('');
   let editing = $state(/** @type {{id: string, field: 'name'|'desc'} | null} */ (null));
-  let suggesting = $state(false);
   let generating = $state(false);
+  let deducting = $state(false);
   let expandedDescs = $state(/** @type {Set<string>} */ (new Set()));
 
   function toggleDesc(id) {
@@ -15,7 +15,6 @@
     if (next.has(id)) next.delete(id); else next.add(id);
     expandedDescs = next;
   }
-  let proposed = $state(/** @type {Array<{name:string,desc:string,color:string}>} */ ([]));
 
   // Inline add-group form
   let addingGroup = $state(false);
@@ -134,26 +133,6 @@
     persistNow(updated);
   }
 
-  function acceptProposal(p, idx) {
-    const newGroup = {
-      id: `g_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      name: p.name,
-      color: p.color || '1',
-      count: 0,
-      open: true,
-      desc: p.desc || '',
-      children: []
-    };
-    const updated = [...app.codebook, newGroup];
-    app.codebook = updated;
-    proposed = proposed.filter((_, i) => i !== idx);
-    persistNow(updated);
-  }
-
-  function dismissProposal(idx) {
-    proposed = proposed.filter((_, i) => i !== idx);
-  }
-
   async function handleGenerate() {
     if (!app.activeFile) { app.toast('No transcript selected'); return; }
     generating = true;
@@ -172,16 +151,21 @@
     }
   }
 
-  async function handleSuggest() {
-    suggesting = true;
-    proposed = [];
+  async function handleDeductive() {
+    if (!app.researchQuestion.trim()) {
+      app.toast('Set a research question in the context settings first', 'error');
+      app.highlightRQ = true;
+      return;
+    }
+    deducting = true;
     try {
-      const suggestions = await suggestCodes(app.activeFile, app.codebook);
-      proposed = suggestions;
+      await generateDeductiveCodebook(app.researchQuestion);
+      const book = await getCodebook();
+      app.codebook = book;
     } catch (e) {
-      app.toast(`Suggest failed: ${e.message}`);
+      app.toast(`Deductive generation failed: ${e.message}`);
     } finally {
-      suggesting = false;
+      deducting = false;
     }
   }
 
@@ -392,36 +376,14 @@
         </div>
       {/each}
 
-      {#if proposed.length}
-        <div class="cb-proposed">
-          <div class="cb-proposed-hd">Suggested</div>
-          {#each proposed as p, i (i)}
-            <div class="cb-code proposed">
-              <span></span>
-              <span class="sw" style="--c: var(--code-{p.color || '1'})"></span>
-              <div class="body">
-                <span class="name">{p.name}</span>
-                {#if p.desc}<span class="desc">{p.desc}</span>{/if}
-              </div>
-              <button class="iconbtn accept" onclick={() => acceptProposal(p, i)} title="Add">✓</button>
-              <button class="iconbtn" onclick={() => dismissProposal(i)} title="Dismiss">✕</button>
-            </div>
-          {/each}
-        </div>
-      {/if}
     </div>
 
     <div class="cb-foot">
-      <!-- excluded for now
-      <button>Merge…</button>
-      <button>Export</button>      
-      -->
-
-      <button class="primary" onclick={handleGenerate} disabled={generating || suggesting}>
+      <button class="primary" onclick={handleGenerate} disabled={generating || deducting}>
         {generating ? 'generating…' : '✦ Generate'}
       </button>
-      <button class="primary" onclick={handleSuggest} disabled={suggesting || generating}>
-        {suggesting ? 'suggesting…' : '✦ Suggest codes'}
+      <button class="primary" onclick={handleDeductive} disabled={deducting || generating}>
+        {deducting ? 'generating…' : '✦ Deductive'}
       </button>
     </div>
   </div>
@@ -488,19 +450,4 @@
   .cb-code:hover .del-code { opacity: 1; }
   .cb-code[draggable="true"] { cursor: grab; }
   .cb-code[draggable="true"]:active { cursor: grabbing; }
-  .cb-proposed {
-    margin-top: 8px;
-    border-top: 1px solid var(--hair);
-    padding-top: 4px;
-  }
-  .cb-proposed-hd {
-    font-family: var(--f-mono);
-    font-size: 9.5px;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    padding: 4px 8px 2px;
-  }
-  .cb-code.proposed { border-left: 2px dashed var(--accent); opacity: 0.9; }
-  .iconbtn.accept { color: oklch(0.55 0.12 150); font-size: 10px; }
 </style>

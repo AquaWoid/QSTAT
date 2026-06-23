@@ -110,6 +110,16 @@ export async function updateTranscript(fileId, turns) {
   return res.json();
 }
 
+export async function generateDeductiveCodebook(rq) {
+  const res = await fetch('/api/codebook/deduktive', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ rq })
+  });
+  if (!res.ok) throw new Error(`deductive codebook failed: ${res.status}`);
+  return res.json();
+}
+
 export async function generateCodebook(transcript) {
   const res = await fetch('/api/codebook/generate', {
     method: 'PUT',
