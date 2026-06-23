@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 #cloud_model_path = os.path.join(sys.path[0], "models.json")
-cloud_model_path = Path("API/LLM/models.json")
+cloud_model_path = Path("LLM/models.json")
 
 
 def get_available_models():

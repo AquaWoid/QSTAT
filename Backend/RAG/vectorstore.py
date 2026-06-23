@@ -36,8 +36,8 @@ def remove_stale_document_vectors(user_id: str):
 
 
 
-
-    chroma_client = chromadb.HttpClient(host="localhost", port=8080)    
+    chroma_client = chromadb.PersistentClient(Path("UserData/default/vectors"))
+    #chroma_client = chromadb.HttpClient(host="localhost", port=8080)    
     collection = chroma_client.get_or_create_collection(name=user_id)  
 
     local_roots = {p.stem for p in Path(f"UserData/{user_id}/uploads").iterdir() if p.is_file()}

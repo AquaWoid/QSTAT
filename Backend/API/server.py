@@ -3,10 +3,10 @@ from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os, uuid
 
-import API.SST.speech_recognition as speech_recognition
-import API.LLM.inference as LLM
+import SST.speech_recognition as speech_recognition
+import LLM.inference as LLM
 import API.storage as storage
-from API.LLM.available_models import get_available_models
+from LLM.available_models import get_available_models
 
 app = FastAPI(title="QualScope API")
 
@@ -258,6 +258,7 @@ def _transcribe_job(jid: str, fid: str, path: str):
 def _process_audio(fid: str, path: str):
     import RAG.vectorstore as vs
 
+    
     result = speech_recognition.transcribe_faster(path)
     segs = result["segments"]
     if not segs:

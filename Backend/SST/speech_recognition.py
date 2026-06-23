@@ -68,8 +68,8 @@ def transcribe_qwen(file):
         "segments": segments,
     }
 
-from pathlib import Path
-print(transcribe_qwen(Path("Backend/UserData/default/uploads/6c682ee8.mp3")))
+#from pathlib import Path
+#print(transcribe_qwen(Path("Backend/UserData/default/uploads/6c682ee8.mp3")))
 
 
 
@@ -113,7 +113,7 @@ def transcribe_faster(file):
    #     print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
 
 
-
+#Legacy Whisper Function
 def transcribe(file):
     model = whisper.load_model("turbo")
     result = model.transcribe(file)

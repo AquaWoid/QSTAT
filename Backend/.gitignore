@@ -5,5 +5,7 @@ UserData/Users/*
 UserData/default/*
 !UserData/default/.gitkeep
 API/*/__pycache__/
+LLM/__pycache__
+SST/__pycache__
 RAG/__pycache__
 
