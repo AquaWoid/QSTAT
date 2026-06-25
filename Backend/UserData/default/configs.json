@@ -1,0 +1,10 @@
+{
+  "researchContext": {
+    "rq": ""
+  },
+  "activeModel": {
+    "identifier": "deepseek/deepseek-v4-flash",
+    "kind": "cloud"
+  },
+  "transcription_model": "faster-whisper"
+}
