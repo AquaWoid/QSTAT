@@ -10,31 +10,16 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-current_dir = Path(__file__).resolve().parent
-env_path = current_dir.parent / ".env"
+#current_dir = Path(__file__).resolve().parent
+#env_path = current_dir.parent / ".env"
 
-load_dotenv(env_path)
+#load_dotenv(env_path)
 
-hostname = "localhost"
-or_key = os.getenv("OR_KEY")
+or_key = os.getenv("OPENROUTER_KEY")
+VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://localhost:8001/v1")
 
 LLM_URL = "https://openrouter.ai/api/v1/chat/completions"
 LLM_MODEL = "deepseek/deepseek-v4-flash"
-
-
-#Local LLM Deployment - Will be re-added later
-#LLM_MODEL = "Qwen/Qwen3-14B-AWQ"
-#LLM_URL = f"http://{hostname}:8000/v1/chat/completions"
-
-
-def set_model(model_identifier: str, mode: str):
-
-    if(mode == "cloud"):
-        LLM_URL = "https://openrouter.ai/api/v1/chat/completions"
-    elif(mode == "local"):
-        LLM_URL = f"http://{hostname}:8000/v1/chat/completions"
-
-    LLM_MODEL = model_identifier
 
 
 def _get_active_model() -> tuple:
@@ -44,7 +29,7 @@ def _get_active_model() -> tuple:
     active = cfg.get("activeModel", {})
     model_id = active.get("identifier") or LLM_MODEL
     kind = active.get("kind", "cloud")
-    url = f"http://{hostname}:8000/v1/chat/completions" if kind == "local" else LLM_URL
+    url = f"{VLLM_BASE_URL}/chat/completions" if kind == "local" else LLM_URL
     headers = {"Authorization": f"Bearer {or_key}"} if kind != "local" else {}
     return model_id, url, headers
 
@@ -60,13 +45,6 @@ def resolve_response_message(response):
 
 def stream_chat_qualscope(payload: dict):
 
-    """
-    Generator that yields QualScope SSE events:
-      data: {"type":"token","value":"..."}\n\n
-      data: {"type":"cite","value":{...}}\n\n
-      data: {"type":"done"}\n\n
-    """
-
     messages = payload.get("messages", [])
     print("MESSAGES:: ", messages)
     rag_cfg = payload.get("rag", {"on": False, "scope": "all"})
@@ -75,7 +53,7 @@ def stream_chat_qualscope(payload: dict):
     model_identifier = payload.get("model") or _cfg_model
     if "modelKind" in payload:
         kind = payload["modelKind"]
-        url = f"http://{hostname}:8000/v1/chat/completions" if kind == "local" else LLM_URL
+        url = f"{VLLM_BASE_URL}/chat/completions" if kind == "local" else LLM_URL
         auth = {} if kind == "local" else {"Authorization": f"Bearer {or_key}"}
     else:
         url, auth = _cfg_url, _cfg_auth
@@ -115,7 +93,7 @@ def stream_chat_qualscope(payload: dict):
         except Exception:
             pass
 
-    # Build system prompt — include numbered sources so LLM can cite them inline
+    # System Prompt building
     sys_content = (
         "You are QSTAT, an AI assistant for qualitative researchers. "
         "Always answer in the input language"
@@ -179,52 +157,6 @@ def stream_chat_qualscope(payload: dict):
 
     yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-
-# Code suggestion
-
-def suggest_codes(transcript_text: str, existing_names: list) -> list:
-    model_id, url, auth = _get_active_model()
-    existing_str = ", ".join(existing_names[:40]) if existing_names else "none"
-    prompt = (
-        f"Transcript excerpt:\n{transcript_text}\n\n"
-        f"Existing top-level code categories: {existing_str}\n\n"
-        "Suggest 3-5 NEW top-level qualitative code categories (themes/dimensions) "
-        "not already in the list. These are parent categories, not sub-codes. "
-        "Return ONLY a valid JSON array, no other text:\n"
-        '[{"name":"Category Name","desc":"Brief analytical definition","color":"1"}]\n'
-        "Colors are strings 1-6; pick distinct colors not used by existing categories. "
-        "No trailing commas, no explanation."
-    )
-
-    print(
-        "\n----------------CODE SUGGEST----------------------\n\n",
-        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Prompt: ", prompt, "\n\n",
-        "----------------CODE SUGGEST----------------------\n"
-    )
-
-    try:
-        response = requests.post(
-            url,
-            headers=auth,
-            json={
-                "model": model_id,
-                "messages": [
-                    {"role": "system", "content": "You are a qualitative research assistant. Output only valid JSON."},
-                    {"role": "user", "content": prompt},
-                ],
-                "stream": False,
-                "chat_template_kwargs": {"enable_thinking": False},
-            },
-            timeout=60,
-        )
-        content = response.json()["choices"][0]["message"]["content"]
-        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-        m = re.search(r"\[.*\]", content, re.DOTALL)
-        if m:
-            return json.loads(m.group(0))
-    except Exception:
-        pass
-    return []
 
 
 def generate_deductive_codebook(research_question: str):
@@ -320,6 +252,51 @@ def generate_codebook(transcript_text: str):
         m = re.search(r"\[.*\]", content, re.DOTALL)
         if m:
             print("Codebook Output: ", m.group(0))
+            return json.loads(m.group(0))
+    except Exception:
+        pass
+    return []
+
+# Code suggestion - Legacy Function, kept for backwards compatibility
+def suggest_codes(transcript_text: str, existing_names: list) -> list:
+    model_id, url, auth = _get_active_model()
+    existing_str = ", ".join(existing_names[:40]) if existing_names else "none"
+    prompt = (
+        f"Transcript excerpt:\n{transcript_text}\n\n"
+        f"Existing top-level code categories: {existing_str}\n\n"
+        "Suggest 3-5 NEW top-level qualitative code categories (themes/dimensions) "
+        "not already in the list. These are parent categories, not sub-codes. "
+        "Return ONLY a valid JSON array, no other text:\n"
+        '[{"name":"Category Name","desc":"Brief analytical definition","color":"1"}]\n'
+        "Colors are strings 1-6; pick distinct colors not used by existing categories. "
+        "No trailing commas, no explanation."
+    )
+
+    print(
+        "\n----------------CODE SUGGEST----------------------\n\n",
+        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Prompt: ", prompt, "\n\n",
+        "----------------CODE SUGGEST----------------------\n"
+    )
+
+    try:
+        response = requests.post(
+            url,
+            headers=auth,
+            json={
+                "model": model_id,
+                "messages": [
+                    {"role": "system", "content": "You are a qualitative research assistant. Output only valid JSON."},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            timeout=60,
+        )
+        content = response.json()["choices"][0]["message"]["content"]
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        m = re.search(r"\[.*\]", content, re.DOTALL)
+        if m:
             return json.loads(m.group(0))
     except Exception:
         pass

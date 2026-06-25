@@ -20,8 +20,18 @@
   ],
   "local": [
     {
+      "name": "Qwen3 4b AWQ",
+      "identifier": "Qwen/Qwen3-4B-AWQ"
+    }
+  ],
+  "disabled": [
+    {
       "name": "Qwen3 14b AWQ",
       "identifier": "Qwen/Qwen3-14B-AWQ"
+    },
+    {
+      "name": "Qwen3 0.6b",
+      "identifier": "Qwen/Qwen3-0.6B"
     }
   ],
   "transcription": [

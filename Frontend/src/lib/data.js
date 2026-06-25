@@ -17,59 +17,22 @@ export const PROJECT = {
 
 export const CODEBOOK = [
   {
-    id: 'g1', name: 'Trust & Autonomy', color: '1', count: 47, open: true,
-    desc: 'How teachers negotiate epistemic authority with AI outputs.',
+    id: 'g1', name: 'Category1', color: '1', count: 47, open: true,
+    desc: 'Description 1',
     children: [
-      { id: 'c11', name: 'Verification habits',     color: '1', count: 14, desc: 'Cross-checking AI outputs against curriculum, peers, or first principles.' },
-      { id: 'c12', name: 'Loss of agency',          color: '1', count: 11, desc: 'Feeling that decisions are nudged or pre-made by the tool.' },
-      { id: 'c13', name: 'Selective deference',     color: '1', count: 12, desc: 'Trusting AI for low-stakes tasks; reserving judgment elsewhere.' },
-      { id: 'c14', name: 'Calibration over time',   color: '1', count: 10, desc: 'Trust shifting as familiarity with the tool grows.' }
+      { id: 'c11', name: 'Code 1',     color: '1', count: 14, desc: 'Code Description 1' },
+      { id: 'c12', name: 'Code 2',          color: '1', count: 11, desc: 'Code Description 2' },
+      { id: 'c13', name: 'Code 3',     color: '1', count: 12, desc: 'Code Description 3' },
+      { id: 'c14', name: 'Code 4',   color: '1', count: 10, desc: 'Code Description 4' }
     ]
   },
   {
-    id: 'g2', name: 'Pedagogical Impact', color: '3', count: 38, open: true,
-    desc: 'Effects on teaching practice and student learning experience.',
+    id: 'g2', name: 'Category 2', color: '3', count: 38, open: true,
+    desc: 'Description 2',
     children: [
-      { id: 'c21', name: 'Personalization',         color: '3', count: 13, desc: 'Tailoring materials to individual learner needs.' },
-      { id: 'c22', name: 'Skill atrophy concerns',  color: '3', count: 9,  desc: 'Worry that students offload core skills before mastery.' },
-      { id: 'c23', name: 'Scaffolding rewrites',    color: '3', count: 8,  desc: 'Restructuring lesson scaffolds because of AI-aided drafts.' },
-      { id: 'c24', name: 'Feedback richness',       color: '3', count: 8,  desc: 'Faster, more granular formative feedback loops.' }
-    ]
-  },
-  {
-    id: 'g3', name: 'Adoption Barriers', color: '2', count: 29, open: true,
-    desc: 'Friction preventing routine classroom use.',
-    children: [
-      { id: 'c31', name: 'Time costs',              color: '2', count: 12, desc: 'Setup, prompt-crafting, and review consume planning time.' },
-      { id: 'c32', name: 'Institutional policy',    color: '2', count: 10, desc: 'Unclear or restrictive district/school guidance.' },
-      { id: 'c33', name: 'Tool fragmentation',      color: '2', count: 7,  desc: 'Juggling multiple overlapping products and logins.' }
-    ]
-  },
-  {
-    id: 'g4', name: 'Student Reactions', color: '4', count: 24, open: false,
-    desc: 'How students respond, behaviorally and affectively.',
-    children: [
-      { id: 'c41', name: 'Curiosity surge',         color: '4', count: 9 },
-      { id: 'c42', name: 'Anxiety / dependence',    color: '4', count: 8 },
-      { id: 'c43', name: 'Peer disclosure norms',   color: '4', count: 7 }
-    ]
-  },
-  {
-    id: 'g5', name: 'Identity & Craft', color: '5', count: 18, open: false,
-    desc: 'Teaching as a vocation; what the tool changes about that self-image.',
-    children: [
-      { id: 'c51', name: 'Pride in handcraft',      color: '5', count: 7 },
-      { id: 'c52', name: 'Role drift',              color: '5', count: 6 },
-      { id: 'c53', name: 'Generational framing',    color: '5', count: 5 }
-    ]
-  },
-  {
-    id: 'g6', name: 'Equity Concerns', color: '6', count: 13, open: false,
-    desc: 'Unevenness in access, benefit, and harm across student populations.',
-    children: [
-      { id: 'c61', name: 'Access gaps',             color: '6', count: 5 },
-      { id: 'c62', name: 'Linguistic bias',         color: '6', count: 4 },
-      { id: 'c63', name: 'Hidden curriculum',       color: '6', count: 4 }
+      { id: 'c21', name: 'Code 1',         color: '3', count: 13, desc: 'Code Description 1' },
+      { id: 'c22', name: 'Code 2',  color: '3', count: 9,  desc: 'Code Description 2' },
+      { id: 'c23', name: 'Code 3',    color: '3', count: 8,  desc: 'Code Description 3' },
     ]
   }
 ];

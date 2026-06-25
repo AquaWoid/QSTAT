@@ -1,9 +1,11 @@
 venv
 API/__pycache__
 UserData/Users/*
-!UserData/Users/.gitkeep
-UserData/default/*
+UserData/default/transcripts/*
+UserData/default/uploads/*
+UserData/default/vectors/*
 !UserData/default/.gitkeep
+!UserData/default/*/.gitkeep
 API/*/__pycache__/
 LLM/__pycache__
 SST/__pycache__

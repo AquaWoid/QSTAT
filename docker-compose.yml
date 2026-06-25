@@ -14,18 +14,21 @@ services:
     networks:
       - qstat-network
 
-  client:
+  frontend:
     build:
-      context: ./Client
+      context: ./Frontend
     container_name: qstat-client
     ports:
-      - "5173:5173"
+      - "3000:3000"
     environment:
-      - VITE_API_URL=http://api.localhost
+      - FASTAPI_URL=http://backend:8000
+      - ORIGIN=http://app.${HOSTNAME}
+      - BODY_SIZE_LIMIT=Infinity
     depends_on:
       - backend
     labels:
       - "traefik.http.routers.client.rule=Host(`app.${HOSTNAME}`)"
+      - "traefik.http.services.client.loadbalancer.server.port=3000"
     networks:
       - qstat-network
 
@@ -41,6 +44,7 @@ services:
 #      - DATABASE_URL=postgresql+asyncpg://${PG_USER}:${PG_PWD}@postgresql:5432/${PG_DB}
       - CUDA_VISIBLE_DEVICES=0
       - CHROMA_URL=http://chroma:8000
+      - OPENROUTER_KEY=${OPENROUTER_KEY}
     labels:
       - "traefik.http.routers.backend.rule=Host(`api.${HOSTNAME}`)"
     depends_on:
@@ -79,10 +83,12 @@ services:
     ports:
       - "8001:8000"
     command: >
-      --model Qwen/Qwen3-14B-AWQ
-      --max-model-len 4096
-      --gpu-memory-utilization 0.85
-      --host 0.0.0.0
+      --model ${MODEL_NAME}
+      --quantization awq 
+      --dtype half 
+      --max-model-len ${CONTEXT_WINDOW_LEN} 
+      --gpu-memory-utilization 0.85 
+      --host 0.0.0.0 
       --port 8000
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface

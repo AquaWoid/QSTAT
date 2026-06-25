@@ -291,8 +291,8 @@ def _process_audio(fid: str, path: str):
     ids = [f"{fid}_{t['id']}" for t in turns]
     try:
         vs.store_vectors(docs, metas, ids, "default")
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[vectorstore] audio embed failed: {e}")
 
     total = int(segs[-1]["end_raw"])
     h, m, s = total // 3600, (total % 3600) // 60, total % 60
@@ -327,8 +327,8 @@ def _process_document(fid: str, path: str):
         storage.update_file(fid, {"meta": "embedding…", "progress": 70})
         try:
             vectorstore.store_vectors(docs, mets, ids, "default")
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[vectorstore] document embed failed: {e}")
         storage.update_file(fid, {"status": "ok", "meta": f"{pages} pp · {len(docs)} chunks", "progress": None})
     except Exception:
         storage.update_file(fid, {"status": "ok", "meta": "indexed", "progress": None})

@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 
-const UPSTREAM = () => env.FASTAPI_URL ?? 'http://localhost:8001';
+const UPSTREAM = () => env.FASTAPI_URL ?? 'http://localhost:8000';
 const AUTH = () => env.FASTAPI_TOKEN ? { authorization: `Bearer ${env.FASTAPI_TOKEN}` } : {};
 
 export async function GET() {

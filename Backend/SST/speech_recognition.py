@@ -1,8 +1,3 @@
-import whisper
-import sys
-from faster_whisper import WhisperModel
-from qwen_asr import Qwen3ASRModel
-import torch
 
 def format_time(seconds):
     h = int(seconds // 3600)
@@ -13,6 +8,8 @@ def format_time(seconds):
 
 
 def transcribe_qwen(file):
+    from qwen_asr import Qwen3ASRModel
+    import torch
 
     model = Qwen3ASRModel.from_pretrained(
         "Qwen/Qwen3-ASR-1.7B",
@@ -68,15 +65,9 @@ def transcribe_qwen(file):
         "segments": segments,
     }
 
-#from pathlib import Path
-#print(transcribe_qwen(Path("Backend/UserData/default/uploads/6c682ee8.mp3")))
-
-
-
-
-
 
 def transcribe_faster(file):
+    from faster_whisper import WhisperModel
     print("starting transcription")
     model_size = "turbo"
     try:
@@ -115,6 +106,7 @@ def transcribe_faster(file):
 
 #Legacy Whisper Function
 def transcribe(file):
+    import whisper
     model = whisper.load_model("turbo")
     result = model.transcribe(file)
     segments = [

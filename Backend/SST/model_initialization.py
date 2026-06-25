@@ -1,6 +1,9 @@
 import whisper 
 from transformers import VoxtralRealtimeForConditionalGeneration, AutoProcessor
 
+
+#Module currently not in use as i've implemented model loading through available_models.py and models.json. Will remove in the future, kept for backwards compatibility for now.
+
 models = ["whisper", "voxtral", "qwen-ars"]
 
 submodels_whisper = {

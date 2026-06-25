@@ -1,19 +1,13 @@
-#Retrieval
 import json, re
 from pathlib import Path
 import requests
 import chromadb
 
-#chroma_client_http = chromadb.HttpClient(host="chroma", port=8000)   #Docker Version - Will use that again once docker compose is re-implemented
-#chroma_client_http = chromadb.HttpClient(host="localhost", port=8080)
-chroma_client_http = chromadb.PersistentClient(Path("UserData/default/vectors"))
+#chroma_client_http = chromadb.HttpClient(host="chroma", port=8000)   #Legacy variant will most like be removed soon
 
 def retrieve_chunks(user_id: str, query: str, n: int = 8) -> list:
-    """
-    Returns list of dicts: {file, fileId, page, score, preview, chunkType, turnId, ts}
-    Used by the QualScope chat endpoint for RAG context + cite events.
-    """
     try:
+        chroma_client_http = chromadb.PersistentClient(Path("UserData/default/vectors"))
         collection = chroma_client_http.get_or_create_collection(name=user_id)
         results = collection.query(query_texts=[query], n_results=n)
         chunks = []
@@ -26,7 +20,6 @@ def retrieve_chunks(user_id: str, query: str, n: int = 8) -> list:
             score = round(max(0.0, 1.0 - dist), 3)
             source = meta.get("source", "unknown")
             chunk_type = meta.get("type", "document")
-            # For transcript chunks, vector ID is "{fid}_{turnId}" e.g. "abc123_t01"
             turn_id = vid.split("_", 1)[1] if chunk_type == "transcript" and "_" in vid else None
             chunks.append({
                 "file": source,
@@ -83,7 +76,7 @@ def retrieve_context(user_id : str, subject : str, query : str):
     
 
     response = requests.post(
-    url="http://localhost:8000/v1/chat/completions",
+    url="http://localhost:8001/v1/chat/completions",
             headers = {
                 'Content-Type': 'application/json'
             },

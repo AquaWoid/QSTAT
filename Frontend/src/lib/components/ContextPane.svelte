@@ -46,24 +46,24 @@
 
   onMount(async () => {
     try {
-      const files = await listFiles();
+      const [files, models, cfg] = await Promise.all([
+        listFiles(),
+        fetchModels().catch(() => ({})),
+        fetchConfig().catch(() => ({})),
+      ]);
       if (files.length > 0) {
         app.files = files;
         if (!files.find((f) => f.id === app.activeFile)) {
           app.activeFile = files[0].id;
         }
       }
+      transcriptionModels = models.transcription ?? [];
+      transcriptionModel = cfg.transcription_model ?? 'faster-whisper';
+      app.researchQuestion = cfg.researchContext?.rq ?? '';
     } catch (e) {
       app.toast(`Could not load files: ${e.message}`);
     }
     if (app.files.some((f) => f.status === 'proc')) startPoll();
-
-    try {
-      const [models, cfg] = await Promise.all([fetchModels(), fetchConfig()]);
-      transcriptionModels = models.transcription ?? [];
-      transcriptionModel = cfg.transcription_model ?? 'faster-whisper';
-      app.researchQuestion = cfg.researchContext?.rq ?? '';
-    } catch { /* non-fatal */ }
 
     return () => { if (pollTimer) clearInterval(pollTimer); };
   });

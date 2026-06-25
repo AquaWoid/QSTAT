@@ -38,15 +38,15 @@ export const ACCENTS_DARK  = ['#d97a6c', '#7fa4d9', '#86b896', '#b48cb6'];
 let _toastSeq = 0;
 
 function createState() {
-  // Seed with demo data; ContextPane and CodebookPane replace on mount.
-  let files     = $state(PROJECT.files);
+  // Files are populated on mount by ContextPane; start empty to avoid spurious poll.
+  let files     = $state(/** @type {typeof PROJECT.files} */ ([]));
   let codebook  = $state(CODEBOOK);
 
   // Citation registry — mutable object so MessageStream can add entries.
   // Initialised with demo cites; live cites accumulate with higher IDs.
   let cites = $state({ ...CITES });
 
-  let activeFile = $state(files[0].id);
+  let activeFile = $state(/** @type {string | null} */ (null));
   let activeCode = $state(/** @type {string | null} */ (null));
   let citeFlash  = $state(/** @type {number | null} */ (null));
   /** Turn ID to scroll to after a transcript loads — set by cite() for transcript chunks. */

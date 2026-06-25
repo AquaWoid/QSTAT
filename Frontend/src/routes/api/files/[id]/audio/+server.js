@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 
-const base = () => env.FASTAPI_URL ?? 'http://localhost:8001';
+const base = () => env.FASTAPI_URL ?? 'http://localhost:8000';
 const auth = () => (env.FASTAPI_TOKEN ? { authorization: `Bearer ${env.FASTAPI_TOKEN}` } : {});
 
 // Forward Range header so the browser can seek inside the audio file.

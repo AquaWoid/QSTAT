@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/private';
 
 export async function GET() {
-  const upstream = await fetch(`${env.FASTAPI_URL ?? 'http://localhost:8001'}/models`, {
+  const upstream = await fetch(`${env.FASTAPI_URL ?? 'http://localhost:8000'}/models`, {
     headers: {
       ...(env.FASTAPI_TOKEN ? { authorization: `Bearer ${env.FASTAPI_TOKEN}` } : {})
     }

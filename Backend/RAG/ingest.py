@@ -6,7 +6,6 @@ def pdf_ingest(path : str, export_format : str = "markdown"):
 
     data = pathlib.Path(path)
  
-
     for file in data.iterdir():
         if(file.suffix == ".pdf"):
 
