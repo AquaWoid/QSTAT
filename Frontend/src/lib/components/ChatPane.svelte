@@ -224,13 +224,16 @@
         >
           <span class="dot"></span>@docs
         </button>
-        {#if ragOn}
+        <!-- 
+         {#if ragOn}
           <button class="rag-scope" onclick={cycleScope}>
             {#if ragScope === 'all'}<span>all {app.files.length} files</span>
             {:else if ragScope === 'transcript'}<span>this transcript only</span>
             {:else}<span>selected files</span>{/if}
           </button>
-        {/if}
+        {/if}       
+        -->
+
         <span class="rag-hint">{ragOn ? 'top-8 chunks · Chroma' : 'no retrieval — pure reasoning'}</span>
       </div>
       <textarea

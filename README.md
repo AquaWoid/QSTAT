@@ -91,3 +91,73 @@ From the main directory open one terminal window for **each** service:
 			  --max-model-len 4096 \
 			  --gpu-memory-utilization 0.85
 		```
+---
+
+# Usage
+
+## Context Panel
+
+- Model
+	- Select your desired transcription model
+- Research Question
+	- Define a research question that will be used for deductive category building
+- Model Cache
+	- Download your desired transcription model.
+	- At least one has to be downloaded to upload audio files
+	- Qwen3 ASR is GPU only currently. If you're running the CPU version please use Whisper.
+- Document Section
+	- Audio 
+		- Transcribed Audio Files. Click to open the transcript in the editor window
+	- Documents
+		- PDF Only for now. Click to open PDF in the editor window
+## Editor Window
+
+- View Transcriptions and edit transcriptions
+- View PDF documents using the browser's native pdf viewer
+
+## Codebook Panel
+
+- Add code categories manually using the + icon.
+- Once a category is created, hover over it, press the three dots and either add a code or delete the category group.
+- Codes can be dragged onto transcript segments to apply them 
+- Generate
+	- Inductive codebook generation
+	- Needs an open transcript to work
+	- Might need some time depending on the model
+		- Cloud will usually take longer than the local model
+- Deductive
+	- Deductive codebook generation
+	- Needs a defined research question to work 
+	- Currently still in prototyping phase
+		- Generates codes based on ten "relevant" papers taken from the models own data based on the research question
+
+## Chat Panel
+
+- Model Selection
+	- Select one of the provided models
+	- For now it is advised to use the provided local model 
+		- Qwen3-4B-AWQ for the GPU version
+		- Qwen3-0.6B for the CPU version
+	- This means it is also advised to keep the models in the projects .env file like they are since the logic to dynamically detect the loaded model is not yet fully implemented.
+- Copy Thread Button
+	- Copies the complete chat as Markdown
+- + Button
+	- Opens a new chat and discards the previous one
+- @docs Button
+	- Toggles the RAG system
+- General
+	- Conversation context consists of all of the current chat outputs and RAG retrieved text chunks based on the input / question
+	- For testing the RAG System, try to ask the model about transcripts or papers you've provided
+	- When using RAG the model is tasked to only include facts from the provided sources
+
+## Top Bar 
+
+- Stats
+	- Status
+		- Shows if a file is processing
+	- Files Codes and Transcripts
+		- Shows the count of those
+- Sun Symbol 
+	- Tweaks menu 
+	- Adjust Application style and spacings to your liking
+	- Chat window can be toggled for better visual clarity when working with codes
