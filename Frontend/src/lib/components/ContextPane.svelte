@@ -13,7 +13,7 @@
   let transcriptionModels = $state([]);
   let transcriptionModel = $state('faster-whisper');
   let rqHighlighted = $state(false);
-  let rqInputEl = /** @type {HTMLTextAreaElement|null} */ (null);
+  let rqInputEl = $state(/** @type {HTMLTextAreaElement|null} */ (null));
   let _rqSaveTimer = null;
 
   const MODEL_LABELS = {

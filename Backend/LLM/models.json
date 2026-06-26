@@ -20,11 +20,11 @@
   ],
   "local": [
     {
-      "name": "Qwen3 4b AWQ GPU Only",
+      "name": "Qwen3 4b AWQ | GPU Version Only",
       "identifier": "Qwen/Qwen3-4B-AWQ"
     },
     {
-      "name": "Qwen3 0.6b CPU Only",
+      "name": "Qwen3 0.6b | CPU Version Only",
       "identifier": "Qwen/Qwen3-0.6B"
     }
   ],
