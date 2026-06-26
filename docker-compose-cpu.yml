@@ -41,53 +41,36 @@ services:
       - "8000:8000"
     environment:
       - VLLM_BASE_URL=http://vllm:8000/v1
+#      - DATABASE_URL=postgresql+asyncpg://${PG_USER}:${PG_PWD}@postgresql:5432/${PG_DB}
       - CUDA_VISIBLE_DEVICES=0
       - CHROMA_URL=http://chroma:8000
       - OPENROUTER_KEY=${OPENROUTER_KEY}
     labels:
       - "traefik.http.routers.backend.rule=Host(`api.${HOSTNAME}`)"
-    depends_on:
-      vllm: 
-        condition: service_started
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
       - ~/.cache/whisper:/root/.cache/whisper
       - ~/.cache/chroma:/root/.cache/chroma
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     networks:
       - qstat-network
 
 
   vllm:
-    image: vllm/vllm-openai:latest
+    image: vllm/vllm-openai-cpu
     container_name: vllm
     ports:
       - "8001:8000"
     command: >
-      --model ${MODEL_NAME}
-      --quantization awq 
+      --model ${CPU_MODEL_NAME}
+      --gpu-memory-utilization 0.50 
       --dtype half 
       --max-model-len ${CONTEXT_WINDOW_LEN} 
-      --gpu-memory-utilization 0.85 
       --host 0.0.0.0 
       --port 8000
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface
     environment:
       - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     networks:
       - qstat-network
 
