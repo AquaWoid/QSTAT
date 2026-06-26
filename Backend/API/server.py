@@ -131,6 +131,11 @@ def transcribe_status(job_id: str):
 
 
 # ── Chat ──────────────────────────────────────────────────────────────────────
+import RAG.retrieval as retrieval
+
+@app.get("/retrieveDebug")
+def debugRetrieve(query: str):
+    return retrieval.retrieve_chunks("default", query, 8)
 
 @app.post("/chat")
 def chat(payload: dict):
@@ -372,8 +377,10 @@ def _process_document(fid: str, path: str):
         storage.update_file(fid, {"meta": "embedding…", "progress": 70})
         try:
             vectorstore.store_vectors(docs, mets, ids, "default")
+            storage.update_file(fid, {"status": "ok", "meta": f"{pages} pp · {len(docs)} chunks", "progress": None})
         except Exception as e:
             print(f"[vectorstore] document embed failed: {e}")
-        storage.update_file(fid, {"status": "ok", "meta": f"{pages} pp · {len(docs)} chunks", "progress": None})
-    except Exception:
-        storage.update_file(fid, {"status": "ok", "meta": "indexed", "progress": None})
+            storage.update_file(fid, {"status": "error", "meta": f"embed failed: {e}", "progress": None})
+    except Exception as e:
+        print(f"[process_document] failed: {e}")
+        storage.update_file(fid, {"status": "error", "meta": f"processing failed: {e}", "progress": None})

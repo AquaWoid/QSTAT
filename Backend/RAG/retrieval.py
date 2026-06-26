@@ -3,13 +3,16 @@ from pathlib import Path
 import requests
 import chromadb
 
-#chroma_client_http = chromadb.HttpClient(host="chroma", port=8000)   #Legacy variant will most like be removed soon
+_VECTORS_DIR = Path(__file__).resolve().parent.parent / "UserData" / "default" / "vectors"
 
 def retrieve_chunks(user_id: str, query: str, n: int = 8) -> list:
     try:
-        chroma_client = chromadb.PersistentClient(Path("UserData/default/vectors"))
+        chroma_client = chromadb.PersistentClient(_VECTORS_DIR)
         collection = chroma_client.get_or_create_collection(name=user_id)
-        results = collection.query(query_texts=[query], n_results=n)
+        count = collection.count()
+        if count == 0:
+            return []
+        results = collection.query(query_texts=[query], n_results=min(n, count))
         chunks = []
         for vid, doc, meta, dist in zip(
             results["ids"][0],
@@ -32,6 +35,7 @@ def retrieve_chunks(user_id: str, query: str, n: int = 8) -> list:
                 "ts": meta.get("ts"),
             })
         return chunks
-    except Exception:
+    except Exception as e:
+        print(f"[retrieval] retrieve_chunks failed: {e}")
         return []
 

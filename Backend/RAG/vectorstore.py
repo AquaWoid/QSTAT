@@ -9,22 +9,17 @@ def store_vectors(documents : list, metadatas : list, ids : list, user: str, emb
     #chroma_client = chromadb.HttpClient(host="chroma", port=8000) # Docker Version - unused will be removed
     _VECTORS_DIR.mkdir(parents=True, exist_ok=True)
     chroma_client = chromadb.PersistentClient(_VECTORS_DIR)
-    #chroma_client = chromadb.HttpClient(host="localhost", port=8080)
-    sentence_transformer_ef = SentenceTransformerEmbeddingFunction(
-    model_name=embedding_model,
-    device="cpu",
-    normalize_embeddings=False
-    )
 
-
-    #collection = chroma_client.get_or_create_collection(name=user, embedding_function=sentence_transformer_ef) #Have to test first
     collection = chroma_client.get_or_create_collection(name=user)
 
+    before = collection.count()
     collection.upsert(
-    documents=documents,
-    metadatas=metadatas,
-    ids=ids
+        documents=documents,
+        metadatas=metadatas,
+        ids=ids
     )
+    after = collection.count()
+    print(f"[vectorstore] upserted {len(ids)} chunks for '{user}', collection size: {before} → {after}")
     return {"status" : f"sucessfully stored vectors for collection: {user}"}
 
 
