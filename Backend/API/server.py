@@ -1,7 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-import os, uuid
+import os, uuid, asyncio, json, threading
 
 import SST.speech_recognition as speech_recognition
 import LLM.inference as LLM
@@ -144,6 +144,51 @@ def chat(payload: dict):
 @app.get("/models")
 def get_models():
     return get_available_models()
+
+
+@app.get("/models/status")
+def models_status():
+    from SST.model_management import get_model_status
+    return get_model_status()
+
+
+@app.get("/models/download/{model_id}")
+async def download_model_sse(model_id: str):
+    from SST.model_management import download_model, MODEL_REPOS
+
+    if model_id not in MODEL_REPOS:
+        raise HTTPException(400, f"Unknown model: {model_id}")
+
+    loop = asyncio.get_running_loop()
+    q: asyncio.Queue = asyncio.Queue()
+
+    def _run():
+        try:
+            download_model(model_id, lambda p: loop.call_soon_threadsafe(q.put_nowait, {"progress": p}))
+            loop.call_soon_threadsafe(q.put_nowait, {"done": True})
+        except Exception as e:
+            loop.call_soon_threadsafe(q.put_nowait, {"error": str(e)})
+
+    threading.Thread(target=_run, daemon=True).start()
+
+    async def generate():
+        yield f"data: {json.dumps({'status': 'downloading', 'progress': 0})}\n\n"
+        while True:
+            msg = await q.get()
+            if "error" in msg:
+                yield f"data: {json.dumps({'status': 'error', 'error': msg['error']})}\n\n"
+                break
+            elif msg.get("done"):
+                yield f"data: {json.dumps({'status': 'done', 'progress': 100})}\n\n"
+                break
+            else:
+                yield f"data: {json.dumps({'status': 'downloading', 'progress': msg['progress']})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"x-accel-buffering": "no", "cache-control": "no-cache"},
+    )
 
 
 # ── Config ────────────────────────────────────────────────────────────────────

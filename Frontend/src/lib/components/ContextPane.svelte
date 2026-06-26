@@ -3,18 +3,51 @@
   import Icon from '$lib/Icon.svelte';
   import FileRow from './FileRow.svelte';
   import { app } from '$lib/state.svelte.js';
-  import { listFiles, uploadFile, deleteFile, fetchModels, fetchConfig, patchConfig } from '$lib/api.js';
+  import { listFiles, uploadFile, deleteFile, fetchModels, fetchConfig, patchConfig, fetchModelStatus, downloadModel } from '$lib/api.js';
 
   let audio = $derived(app.files.filter((f) => f.type === 'mp3'));
   let docs  = $derived(app.files.filter((f) => f.type !== 'mp3'));
   let dragging = $state(false);
 
-  let settingsOpen = $state(false);
+  let settingsOpen = $state(true);
   let transcriptionModels = $state([]);
   let transcriptionModel = $state('faster-whisper');
   let rqHighlighted = $state(false);
   let rqInputEl = /** @type {HTMLTextAreaElement|null} */ (null);
   let _rqSaveTimer = null;
+
+  const MODEL_LABELS = {
+    'faster-whisper': 'Whisper (turbo)',
+    'qwen-asr': 'Qwen3 ASR (1.7B)',
+  };
+
+  /** @type {Record<string, { installed: boolean }>} */
+  let modelStatus = $state({});
+  let anyModelInstalled = $derived(Object.values(modelStatus).some((s) => s.installed));
+  let warnFlash = $state(false);
+  let _warnTimer = null;
+  /** @type {Record<string, { progress: number, status: 'downloading'|'done'|'error', error?: string }>} */
+  let downloadState = $state({});
+
+  async function startDownload(modelId) {
+    downloadState[modelId] = { progress: 0, status: 'downloading' };
+    try {
+      for await (const event of downloadModel(modelId)) {
+        if (event.status === 'done') {
+          downloadState[modelId] = { progress: 100, status: 'done' };
+          modelStatus[modelId] = { installed: true };
+        } else if (event.status === 'error') {
+          downloadState[modelId] = { ...downloadState[modelId], status: 'error', error: event.error };
+          app.toast(`Download failed: ${event.error}`);
+        } else if (event.progress != null) {
+          downloadState[modelId] = { ...downloadState[modelId], progress: event.progress };
+        }
+      }
+    } catch (e) {
+      downloadState[modelId] = { ...downloadState[modelId], status: 'error', error: e.message };
+      app.toast(`Download failed: ${e.message}`);
+    }
+  }
 
   $effect(() => {
     if (app.highlightRQ) {
@@ -46,10 +79,11 @@
 
   onMount(async () => {
     try {
-      const [files, models, cfg] = await Promise.all([
+      const [files, models, cfg, status] = await Promise.all([
         listFiles(),
         fetchModels().catch(() => ({})),
         fetchConfig().catch(() => ({})),
+        fetchModelStatus().catch(() => ({})),
       ]);
       if (files.length > 0) {
         app.files = files;
@@ -60,6 +94,7 @@
       transcriptionModels = models.transcription ?? [];
       transcriptionModel = cfg.transcription_model ?? 'faster-whisper';
       app.researchQuestion = cfg.researchContext?.rq ?? '';
+      modelStatus = status;
     } catch (e) {
       app.toast(`Could not load files: ${e.message}`);
     }
@@ -89,8 +124,17 @@
     }, 600);
   }
 
+  const AUDIO_EXTS = new Set(['.mp3', '.mp4']);
+
   async function handleFiles(fileList) {
     for (const file of fileList) {
+      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      if (AUDIO_EXTS.has(ext) && !anyModelInstalled) {
+        clearTimeout(_warnTimer);
+        warnFlash = true;
+        _warnTimer = setTimeout(() => { warnFlash = false; }, 1400);
+        continue;
+      }
       try {
         const meta = await uploadFile(file);
         // Optimistically prepend; poll will keep it updated
@@ -147,7 +191,7 @@
     {#if settingsOpen}
       <div class="ctx-settings">
         <div class="ctx-settings-row">
-          <label for="transcription-model">Transcription model</label>
+          <label for="transcription-model">Model</label>
           <select id="transcription-model" value={transcriptionModel} onchange={onTranscriptionModelChange}>
             {#each transcriptionModels as m}
               <option value={m.identifier}>{m.name}</option>
@@ -166,6 +210,38 @@
             rows="3"
           ></textarea>
         </div>
+
+        {#if Object.keys(modelStatus).length > 0}
+          <div class="model-cache-section">
+            <span class="model-cache-label">Model cache</span>
+            {#each Object.entries(MODEL_LABELS) as [id, label]}
+              {@const status = modelStatus[id]}
+              {@const dl = downloadState[id]}
+              <div class="model-row">
+                <span class="status-dot" class:ok={status?.installed || dl?.status === 'done'}></span>
+                <span class="model-name">{label}</span>
+                {#if dl?.status === 'downloading'}
+                  <span class="dl-pct">{dl.progress}%</span>
+                {:else if dl?.status === 'error'}
+                  <button class="dl-btn err" onclick={() => startDownload(id)}>Retry</button>
+                {:else if status?.installed || dl?.status === 'done'}
+                  <span class="dl-ready">Ready</span>
+                {:else}
+                  <button class="dl-btn" onclick={() => startDownload(id)}>Download</button>
+                {/if}
+              </div>
+              {#if dl?.status === 'downloading' || dl?.status === 'done'}
+                <div class="progress-track">
+                  <div
+                    class="progress-fill"
+                    class:done={dl?.status === 'done'}
+                    style="width: {dl?.progress ?? 0}%"
+                  ></div>
+                </div>
+              {/if}
+            {/each}
+          </div>
+        {/if}
       </div>
     {/if}
 
@@ -203,6 +279,12 @@
       drop files here<br />
       <span style="color: var(--ink-3);">or click to upload</span>
     </div>
+
+    {#if Object.keys(modelStatus).length > 0 && !anyModelInstalled}
+      <p class="upload-warn" class:flash={warnFlash}>
+        Audio files need a transcription model — download one above.
+      </p>
+    {/if}
   </div>
 
   <div class="ctx-foot">
@@ -291,5 +373,131 @@
     0%   { box-shadow: 0 0 0 2px color-mix(in oklch, var(--accent) 40%, transparent); }
     60%  { box-shadow: 0 0 0 2px color-mix(in oklch, var(--accent) 40%, transparent); }
     100% { box-shadow: none; border-color: var(--hair-2); }
+  }
+
+  .model-cache-section {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--hair-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .model-cache-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    margin-bottom: 2px;
+  }
+
+  .model-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+  }
+
+  .status-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--hair-2);
+    transition: background 0.3s;
+  }
+
+  .status-dot.ok {
+    background: oklch(0.58 0.16 145);
+  }
+
+  .model-name {
+    flex: 1;
+    color: var(--ink-2);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dl-ready {
+    color: var(--ink-4);
+    font-size: 10px;
+  }
+
+  .dl-pct {
+    color: var(--ink-3);
+    font-size: 10px;
+    font-variant-numeric: tabular-nums;
+    min-width: 2.8em;
+    text-align: right;
+  }
+
+  .dl-btn {
+    font-size: 10px;
+    padding: 1px 7px;
+    border: 1px solid var(--hair-2);
+    border-radius: 3px;
+    color: var(--ink-2);
+    background: var(--bg-sunk);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .dl-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .dl-btn.err {
+    border-color: oklch(0.55 0.18 25);
+    color: oklch(0.55 0.18 25);
+  }
+
+  .progress-track {
+    height: 3px;
+    background: var(--hair-soft);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 1px 0 4px 12px;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.4s ease, background 0.3s;
+  }
+
+  .progress-fill.done {
+    background: oklch(0.58 0.16 145);
+  }
+
+  .upload-warn {
+    margin: 4px 10px 0;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--ink-3);
+    background: var(--bg-sunk);
+    border: 1px solid var(--hair-soft);
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  .upload-warn.flash {
+    color: oklch(0.55 0.14 50);
+    border-color: oklch(0.70 0.12 50);
+    background: color-mix(in oklab, oklch(0.70 0.12 50) 10%, var(--bg-sunk));
+    animation: warn-flash 1.4s ease-out forwards;
+  }
+
+  @keyframes warn-flash {
+    0%   { box-shadow: 0 0 0 2px color-mix(in oklab, oklch(0.70 0.12 50) 35%, transparent); }
+    60%  { box-shadow: 0 0 0 2px color-mix(in oklab, oklch(0.70 0.12 50) 35%, transparent); }
+    100% { box-shadow: none; }
   }
 </style>

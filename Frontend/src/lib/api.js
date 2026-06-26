@@ -146,6 +146,35 @@ export async function fetchModels() {
   return res.json();
 }
 
+export async function fetchModelStatus() {
+  const res = await fetch('/api/models/status');
+  if (!res.ok) throw new Error(`model status failed: ${res.status}`);
+  return res.json();
+}
+
+export async function* downloadModel(modelId) {
+  const res = await fetch(`/api/models/download/${modelId}`);
+  if (!res.ok || !res.body) throw new Error(`download failed: ${res.status}`);
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let nl;
+    while ((nl = buf.indexOf('\n\n')) !== -1) {
+      const event = buf.slice(0, nl);
+      buf = buf.slice(nl + 2);
+      const dataLine = event.split('\n').find((l) => l.startsWith('data:'));
+      if (!dataLine) continue;
+      try {
+        yield JSON.parse(dataLine.slice(5).trim());
+      } catch { /* skip malformed */ }
+    }
+  }
+}
+
 export async function fetchConfig() {
   const res = await fetch('/api/config');
   if (!res.ok) throw new Error(`config failed: ${res.status}`);
