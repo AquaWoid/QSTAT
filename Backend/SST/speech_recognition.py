@@ -6,7 +6,7 @@ def format_time(seconds):
     return f"{h:02}:{m:02}:{s:06.3f}"
 
 
-
+# GPU only for now. Todo: Indicate in Frontend or work on Hardware aware Device Map
 def transcribe_qwen(file):
     from qwen_asr import Qwen3ASRModel
     import torch
@@ -15,9 +15,8 @@ def transcribe_qwen(file):
         "Qwen/Qwen3-ASR-1.7B",
         dtype=torch.bfloat16,
         device_map="cuda:0",
-        # attn_implementation="flash_attention_2",
         max_inference_batch_size=32, # Batch size limit for inference. -1 means unlimited. Smaller values can help avoid OOM.
-        max_new_tokens=16384, #128^2 # Maximum number of tokens to generate. Set a larger value for long audio input.
+        max_new_tokens=16384, #128^2
         forced_aligner="Qwen/Qwen3-ForcedAligner-0.6B",
         forced_aligner_kwargs=dict(
             dtype=torch.bfloat16,
@@ -28,14 +27,14 @@ def transcribe_qwen(file):
 
     results = model.transcribe(
         audio=str(file),
-        language=None, # can also be set to None for automatic language detection
+        language=None, # none = auto
         return_time_stamps=True,
     )
 
     result = results[0]
     items = list(result.time_stamps) if result.time_stamps else []
 
-    PAUSE_THRESHOLD = 0.5  # seconds gap between words to start a new segment
+    PAUSE_THRESHOLD = 0.5  # seconds between words to start a new segment
 
     segments = []
     if items:
@@ -98,10 +97,6 @@ def transcribe_faster(file):
         "text": "",
         "segments": segments
     }
-
-    print(segments_formatted)
-  #  for segment in segments:
-   #     print("[%.2fs -> %.2fs] %s" % (segment.start, segment.end, segment.text))
 
 
 #Legacy Whisper Function

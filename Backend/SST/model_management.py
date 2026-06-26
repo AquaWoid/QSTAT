@@ -28,7 +28,7 @@ def download_model(model_id: str, progress_callback):
     repos = MODEL_REPOS[model_id]
     progress_callback(0)
 
-    # Collect every file across all repos so we can track progress
+    # Collect every file across all repos 
     all_files: list[tuple[str, str]] = []
     for repo_id in repos:
         try:

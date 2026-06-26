@@ -1,5 +1,5 @@
 """
-JSON-file-based persistence for QualScope.
+JSON based persistence.
 
 Layout under Backend/UserData/default/:
   files.json         – file metadata list
@@ -79,7 +79,7 @@ def delete_file_meta(file_id: str) -> bool:
             p.unlink(missing_ok=True)
     t = TRANSCRIPTS_DIR / f"{file_id}.json"
     t.unlink(missing_ok=True)
-    remove_stale_document_vectors(user_id="default") #Vector DB removal with Placeholder Userid need to swap later
+    remove_stale_document_vectors(user_id="default") #Todo: Vector DB removal with Placeholder Userid need to swap later
     return True
 
 

@@ -19,6 +19,7 @@
       const [data, cfg] = await Promise.all([fetchModels(), fetchConfig().catch(() => ({}))]);
       const list = [];
       for (const [kind, entries] of Object.entries(data)) {
+        if (kind === 'disabled' || kind === 'transcription') continue;
         for (const m of entries) {
           list.push({
             id: `${kind}-${m.identifier.replace(/[/.]/g, '-')}`,

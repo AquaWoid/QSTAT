@@ -6,7 +6,7 @@ _VECTORS_DIR = Path(__file__).resolve().parent.parent / "UserData" / "default" /
 
 def store_vectors(documents : list, metadatas : list, ids : list, user: str, embedding_model : str = "all-MiniLM-L6-v2"):
 
-    #chroma_client = chromadb.HttpClient(host="chroma", port=8000) Docker Version
+    #chroma_client = chromadb.HttpClient(host="chroma", port=8000) # Docker Version - unused will be removed
     _VECTORS_DIR.mkdir(parents=True, exist_ok=True)
     chroma_client = chromadb.PersistentClient(_VECTORS_DIR)
     #chroma_client = chromadb.HttpClient(host="localhost", port=8080)

@@ -1,6 +1,9 @@
 import re, os, json
 from pathlib import Path
 
+
+#Todo: Create function to initialize models.json depending on GPU vs. CPU deployment
+
 cloud_model_path = Path("LLM/models.json")
 
 def get_available_models():
