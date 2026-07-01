@@ -205,7 +205,7 @@ def generate_codebook(transcript_text: str):
             json={
                 "model": model_id,
                 "messages": [
-                    {"role": "system", "content": system_prompts.get_codebook_prompt(5,15)},
+                    {"role": "system", "content": system_prompts.get_codebook_prompt(10,15)},
                     {"role": "user", "content": prompt},
                 ],
                 "stream": False,

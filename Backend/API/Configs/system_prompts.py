@@ -2,105 +2,129 @@ codebook_structure = """
   [
     {
       "id": "tc1",
-      "name": "Data Cleaning Challenges",
+      "name": "Example Name",
       "color": "3",
       "count": 0,
       "open": true,
-      "desc": "Discussion around difficulties in cleaning and categorizing data, including ambiguity in tagging entities like people, places, and organizations.",
+      "desc": "Example Description",
       "children": [
         {
           "id": "tc1c1",
-          "name": "JSON",
+          "name": "Example Name",
           "color": "3",
           "count": 0,
-          "desc": ""
+          "desc": "Example Description"
         }
       ]
     },
     {
       "id": "tc2",
-      "name": "Tool Development Purpose",
+      "name": "Example Name",
       "color": "5",
       "count": 0,
       "open": true,
-      "desc": "Focus on creating a data processing tool to assist with data accessibility and usability for academic projects.",
+      "desc": "Example Description",
       "children": [
         {
           "id": "tc2c1",
-          "name": "TestCode",
+          "name": "Example Name",
           "color": "5",
           "count": 0,
-          "desc": ""
+          "desc": "Example Description"
         }
       ]
     },
     {
       "id": "tc3",
-      "name": "Collaborative Efforts",
+      "name": "Example Name",
       "color": "2",
       "count": 0,
       "open": true,
-      "desc": "Mentions of teamwork, disagreements, and collaborative processes in handling and organizing data.",
-      "children": []
+      "desc": "Example Description",
+      "children": [
+        {
+          "id": "tc3c1",
+          "name": "Example Name",
+          "color": "3",
+          "count": 0,
+          "desc": "Example Description"
+        }
+      ]
     },
     {
       "id": "tc4",
-      "name": "Domain Knowledge Requirements",
+      "name": "Example Name",
       "color": "3",
       "count": 0,
       "open": true,
-      "desc": "How participants describe needed subject-matter knowledge (e.g., historical context, taxonomies) to interpret and structure the data correctly.",
+      "desc": "Example Description",
       "children": [
         {
           "id": "tc4c1",
-          "name": "Test Code",
+          "name": "Example Name",
           "color": "3",
           "count": 0,
-          "desc": ""
+          "desc": "Example Description"
         },
         {
           "id": "tc4c2",
-          "name": "Testcode2",
+          "name": "Example Name",
           "color": "3",
           "count": 0,
-          "desc": ""
+          "desc": "Example Description"
         }
       ]
     },
     {
       "id": "tc5",
-      "name": "Data Quality and Validation Criteria",
+      "name": "Example Name",
       "color": "4",
       "count": 0,
       "open": true,
-      "desc": "Processes and standards used to judge whether cleaned/tagged data are correct, consistent, and trustworthy.",
+      "desc": "Example Description",
       "children": [
         {
           "id": "tc5c1",
-          "name": "data",
+          "name": "Example Name",
           "color": "4",
           "count": 0,
-          "desc": ""
+          "desc": "Example Description"
         }
       ]
     },
     {
       "id": "tc6",
-      "name": "Uncertainty, Ambiguity, and Edge Cases",
+      "name": "Example Name",
       "color": "5",
       "count": 0,
       "open": true,
-      "desc": "Examples of ambiguous entries and difficulties in disambiguating entity types (person/place/group/org) or handling atypical records.",
-      "children": []
+      "desc": "Example Description",
+      "children": [
+        {
+          "id": "tc6c1",
+          "name": "Example Name",
+          "color": "5",
+          "count": 0,
+          "desc": "Example Description"
+        }      
+      ]
     },
     {
       "id": "tc7",
-      "name": "User Workflows and Adoption Barriers",
+      "name": "Example Name",
       "color": "6",
       "count": 0,
       "open": true,
-      "desc": "Insights into how end users would use the tool, including friction points, expectations, and obstacles to adoption in research workflows.",
-      "children": []
+      "desc": "Example Description",
+      "children": [
+        {
+          "id": "tc7c1",
+          "name": "Example Name",
+          "color": "6",
+          "count": 0,
+          "desc": "Example Description"
+        }      
+      ]
     }
   ]
 
@@ -132,6 +156,7 @@ def get_codebook_prompt(min_codes : int, max_codes : int):
 
   {codebook_structure}
 
+  Remember the names and descriptions in the schema are only examples, find matching names and descriptions from the source material provided by the user!
 
   ### Coding Guidelines
 
