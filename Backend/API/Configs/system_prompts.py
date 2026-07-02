@@ -132,7 +132,7 @@ codebook_structure = """
 
 
 
-def get_codebook_prompt(min_codes : int, max_codes : int):
+def get_codebook_prompt(min_codes : int, max_codes : int, docname: str):
 
 
   codebook_creation = f"""
@@ -158,6 +158,7 @@ def get_codebook_prompt(min_codes : int, max_codes : int):
 
   Remember the names and descriptions in the schema are only examples, find matching names and descriptions from the source material provided by the user!
 
+  
   ### Coding Guidelines
 
   - Identify meaningful themes, concepts, or categories in the text.
@@ -186,7 +187,7 @@ def get_codebook_prompt(min_codes : int, max_codes : int):
 
 
 
-def get_deductive_codebook_prompt(min_codes : int, max_codes : int):
+def get_deductive_codebook_prompt(min_codes : int, max_codes : int, docname: str):
 
 
   deductive_codebook_creation = f"""
@@ -195,7 +196,7 @@ def get_deductive_codebook_prompt(min_codes : int, max_codes : int):
 
   The way you the system must tightly follow Phillip Mayring's deduktive category application (deduktive Kategorienanwendung)
 
-  Your task is to generate a valid JSON object representing a qualitative codebook based on an user input research question and 10 relevant papers to that question.
+  Your task is to generate a valid JSON object representing a qualitative codebook based on the user input research question and document.
 
   You MUST follow these rules strictly:
 
@@ -211,7 +212,8 @@ def get_deductive_codebook_prompt(min_codes : int, max_codes : int):
   The output must follow exactly this schema:
 
   {codebook_structure}
-
+  Remember the names and descriptions in the schema are only examples, find matching names and descriptions from the source material provided by the user!
+  IMPORTANT: in every id you have to use the document identifier {docname} before the actual id with an underline in the middle. Example: docname_id
 
   ### Coding Guidelines
 

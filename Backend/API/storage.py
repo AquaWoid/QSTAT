@@ -15,6 +15,7 @@ from RAG.vectorstore import remove_stale_document_vectors
 
 BASE_DIR = Path(__file__).parent.parent / "UserData" / "default"
 UPLOADS_DIR = BASE_DIR / "uploads"
+MARKDOWN_DIR = UPLOADS_DIR / "markdown"
 TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
 FILES_JSON = BASE_DIR / "files.json"
 CODEBOOK_JSON = BASE_DIR / "codebook.json"
@@ -89,6 +90,11 @@ def save_upload(file_id: str, suffix: str, data: bytes) -> Path:
     path.write_bytes(data)
     return path
 
+def save_markdown(file_id: str, suffix: str, data: str) -> Path:
+    _ensure(MARKDOWN_DIR)
+    path = MARKDOWN_DIR / f"{file_id}{suffix}"
+    path.write_text(data)
+    return path
 
 def get_upload_path(file_id: str) -> Optional[Path]:
     for p in _ensure(UPLOADS_DIR).iterdir():

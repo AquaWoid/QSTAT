@@ -261,7 +261,7 @@ def generate_deductive_codebook(body: dict):
     print("Generate Codebook Deductive Called!")
     research_question = body.get("rq", "")
     print("Transcript: ",  research_question)
-    result = LLM.generate_deductive_codebook(research_question)
+    result = LLM.deductive_agent(research_question)
     print("Got Codebook Result: ", result)
     storage.save_codebook(result)
     print("saved codebook!!")
@@ -364,6 +364,9 @@ def _process_document(fid: str, path: str):
             from docling.document_converter import DocumentConverter
             doc = DocumentConverter().convert(path).document
             text = doc.export_to_markdown()
+
+            storage.save_markdown(fid, ".md", text)
+
             try:
                 pages = len(list(doc.pages))
             except Exception:

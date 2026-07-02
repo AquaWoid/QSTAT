@@ -5,7 +5,7 @@ import json
 from fastapi.responses import StreamingResponse
 import API.Configs.system_prompts as system_prompts
 import RAG.retrieval as RAG
-
+import API.storage
 import os
 from dotenv import load_dotenv
 from pathlib import Path
@@ -159,6 +159,89 @@ def stream_chat_qualscope(payload: dict):
 
 
 
+
+def deductive_agent(research_question: str):
+    
+    MD_DIR = Path(__file__).parent.parent / "UserData" / "default" / "uploads" / "markdown"    
+    
+    codebook_combined = []
+
+
+    for i, file in enumerate(os.listdir(MD_DIR)):
+
+        print("File #", i+1, " : ", file)
+        with open(MD_DIR / file, "r") as f:
+            document_text = f.read()
+            #print(document_text)
+            status = f"processing  {i+1} of {len(os.listdir(MD_DIR))}"
+            #yield {"type" : "status", "message" : status}
+            print(status)
+            codebook = generate_deductive(research_question, document_text, Path(file).stem)
+            codebook_combined.extend(codebook)
+            codebooks_validated = json.dumps(codebook_combined, indent=2, ensure_ascii=False)
+
+
+    print(
+            "------- Codebooks List ---------",
+            codebook_combined,
+            "------- Codebooks Validated ---------",
+            codebooks_validated
+    )
+
+
+    return codebook_combined
+  
+
+"""
+    model_id, url, auth = _get_active_model()    
+    
+    print(
+        "\n----------------DEDUCTIVE CODEBOOK - AGENTIC FLOW----------------------\n\n",
+        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Research Question: ", research_question, "\n\n",
+        "----------------DEDUCTIVE CODEBOOK - AGENTIC FLOW----------------------\n"
+    )  
+"""
+            
+    
+
+
+
+def generate_deductive(research_question: str, document: str, document_id: str):
+    model_id, url, auth = _get_active_model()
+    prompt = "Research Question: " + research_question + "\n" + "Document: \n" + document
+    print(
+        "\n----------------DEDUCTIVE CODEBOOK----------------------\n\n",
+        "Modelid" , model_id, "url", url, "auth: ", auth, "\n RQ: ", research_question, "\n\n",
+        "----------------DEDUCTIVE CODEBOOK----------------------\n"
+    )
+
+    try:
+        response = requests.post(
+            url,
+            headers=auth,
+            json={
+                "model": model_id,
+                "messages": [
+                    {"role": "system", "content": system_prompts.get_deductive_codebook_prompt(5,15, docname=document_id)},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            timeout=60,
+        )
+        message = resolve_response_message(response)
+        if message:
+            print("Codebook Output: ", message.group(0))
+            return json.loads(message.group(0))
+    except Exception:
+        pass
+    return []
+
+
+
+#deductive_agent("How can we leverage machine learning for qualitative research?")
+
 def generate_deductive_codebook(research_question: str):
     model_id, url, auth = _get_active_model()
     prompt = "Research Question: " + research_question
@@ -197,6 +280,13 @@ def generate_deductive_codebook(research_question: str):
 def generate_codebook(transcript_text: str):
     model_id, url, auth = _get_active_model()
     prompt = "Input Text: " + transcript_text
+
+
+    print(
+        "\n----------------GENERATE CODEBOOK----------------------\n\n",
+        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Prompt: ", prompt, "\n\n",
+        "----------------GENERATE CODEBOOK----------------------\n"
+    )
 
     try:
         response = requests.post(
