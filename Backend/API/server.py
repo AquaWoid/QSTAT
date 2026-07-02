@@ -344,6 +344,13 @@ def _transcribe_job(jid: str, fid: str, path: str):
         storage.update_file(fid, {"status": "error", "meta": f"failed: {e}", "progress": None})
 
 
+def extract_text(items):
+    text = ""
+    for item in items:
+        text += item["t"]
+    return text        
+
+
 def _process_audio(fid: str, path: str):
     import RAG.vectorstore as vs
 
@@ -386,7 +393,13 @@ def _process_audio(fid: str, path: str):
     total = int(segs[-1]["end_raw"])
     h, m, s = total // 3600, (total % 3600) // 60, total % 60
     dur = f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
-    storage.update_file(fid, {"status": "ok", "meta": f"{dur} · transcribed", "progress": None})
+    tokens = tokenizer.get_document_tokens(str(docs))
+    json_tokens = tokenizer.get_document_tokens(str(result))
+    
+
+    
+    storage.update_file(fid, {"status": "ok", "meta": f"{dur} · {tokens} tokens · {json_tokens} Json-Tokens", "progress": None})
+
 
 
 def _process_document(fid: str, path: str):
