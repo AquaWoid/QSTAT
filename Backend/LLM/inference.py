@@ -5,11 +5,11 @@ import json
 from fastapi.responses import StreamingResponse
 import API.Configs.system_prompts as system_prompts
 import RAG.retrieval as RAG
-import API.storage
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-
+import LLM.tokenizer as tokenizer
+import API.storage as storage
 #current_dir = Path(__file__).resolve().parent
 #env_path = current_dir.parent / ".env"
 
@@ -24,7 +24,7 @@ LLM_MODEL = "deepseek/deepseek-v4-flash"
 
 def _get_active_model() -> tuple:
     """Read the user-selected model from configs.json. Returns (model_id, url, headers)."""
-    import API.storage as storage
+
     cfg = storage.load_config()
     active = cfg.get("activeModel", {})
     model_id = active.get("identifier") or LLM_MODEL
@@ -163,22 +163,28 @@ def stream_chat_qualscope(payload: dict):
 def deductive_agent(research_question: str):
     
     MD_DIR = Path(__file__).parent.parent / "UserData" / "default" / "uploads" / "markdown"    
-    
+    context_window = 16384
     codebook_combined = []
 
+    cfg = storage.load_config()
+    active = cfg.get("activeModel", {})
+    model_kind = active.get("kind", "cloud")
 
     for i, file in enumerate(os.listdir(MD_DIR)):
 
         print("File #", i+1, " : ", file)
         with open(MD_DIR / file, "r") as f:
             document_text = f.read()
+            if(tokenizer.get_document_tokens(document_text) < context_window or model_kind == "cloud"):
             #print(document_text)
-            status = f"processing  {i+1} of {len(os.listdir(MD_DIR))}"
-            #yield {"type" : "status", "message" : status}
-            print(status)
-            codebook = generate_deductive(research_question, document_text, Path(file).stem)
-            codebook_combined.extend(codebook)
-            codebooks_validated = json.dumps(codebook_combined, indent=2, ensure_ascii=False)
+                status = f"processing  {i+1} of {len(os.listdir(MD_DIR))}"
+                #yield {"type" : "status", "message" : status}
+                print(status)
+                codebook = generate_deductive(research_question, document_text, Path(file).stem)
+                codebook_combined.extend(codebook)
+                codebooks_validated = json.dumps(codebook_combined, indent=2, ensure_ascii=False)
+            else:
+                print("- - - - - - DOCUMENT TOO LARGE FOR CONTEXT WINDOW - - - - - -")
 
 
     print(

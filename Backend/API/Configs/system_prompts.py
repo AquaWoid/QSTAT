@@ -132,7 +132,7 @@ codebook_structure = """
 
 
 
-def get_codebook_prompt(min_codes : int, max_codes : int, docname: str):
+def get_codebook_prompt(min_codes : int, max_codes : int):
 
 
   codebook_creation = f"""

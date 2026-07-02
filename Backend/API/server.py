@@ -7,7 +7,7 @@ import SST.speech_recognition as speech_recognition
 import LLM.inference as LLM
 import API.storage as storage
 from LLM.available_models import get_available_models
-
+import LLM.tokenizer as tokenizer
 app = FastAPI(title="QualScope API")
 
 app.add_middleware(
@@ -210,7 +210,42 @@ def patch_config(body: dict):
     storage.save_config(cfg)
     return cfg
 
-# ── Codebook ──────────────────────────────────────────────────────────────────
+# ── Codebooks (collection) ───────────────────────────────────────────────────
+
+@app.get("/codebooks")
+def list_codebooks():
+    return {"items": storage.list_codebooks(), "activeId": storage.get_active_codebook_id()}
+
+
+@app.put("/codebooks/active")
+def set_active_codebook(body: dict):
+    cb_id = body.get("id")
+    if not cb_id or not any(m["id"] == cb_id for m in storage.list_codebooks()):
+        raise HTTPException(404, "Codebook not found")
+    storage.set_active_codebook_id(cb_id)
+    return {"activeId": cb_id, "codebook": storage.load_codebook(cb_id)}
+
+
+@app.patch("/codebooks/{codebook_id}")
+def rename_codebook(codebook_id: str, body: dict):
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "name required")
+    result = storage.rename_codebook(codebook_id, name)
+    if result is None:
+        raise HTTPException(404, "Codebook not found")
+    return result
+
+
+@app.delete("/codebooks/{codebook_id}")
+def delete_codebook(codebook_id: str):
+    if not storage.delete_codebook(codebook_id):
+        raise HTTPException(404, "Codebook not found")
+    active_id = storage.get_active_codebook_id()
+    return {"items": storage.list_codebooks(), "activeId": active_id, "codebook": storage.load_codebook(active_id)}
+
+
+# ── Codebook (active codebook's codes) ───────────────────────────────────────
 
 @app.get("/codebook")
 def get_codebook():
@@ -252,9 +287,11 @@ def generate_codebook(body: dict):
     print("Transcript: ", transcript)
     result = LLM.generate_codebook(transcript)
     print("Got Codebook Result: ", result)
-    storage.save_codebook(result)
+    if not result:
+        raise HTTPException(422, "Generation returned an empty codebook")
+    meta = storage.create_codebook(result)
     print("saved codebook!!")
-    return {"ok": True}
+    return {"ok": True, **meta, "codebook": result}
 
 @app.put("/codebook/deduktive")
 def generate_deductive_codebook(body: dict):
@@ -263,9 +300,11 @@ def generate_deductive_codebook(body: dict):
     print("Transcript: ",  research_question)
     result = LLM.deductive_agent(research_question)
     print("Got Codebook Result: ", result)
-    storage.save_codebook(result)
+    if not result:
+        raise HTTPException(422, "Generation returned an empty codebook")
+    meta = storage.create_codebook(result)
     print("saved codebook!!")
-    return {"ok": True}
+    return {"ok": True, **meta, "codebook": result}
 
 
 
@@ -364,9 +403,8 @@ def _process_document(fid: str, path: str):
             from docling.document_converter import DocumentConverter
             doc = DocumentConverter().convert(path).document
             text = doc.export_to_markdown()
-
+            tokens = tokenizer.get_document_tokens(text)
             storage.save_markdown(fid, ".md", text)
-
             try:
                 pages = len(list(doc.pages))
             except Exception:
@@ -380,7 +418,7 @@ def _process_document(fid: str, path: str):
         storage.update_file(fid, {"meta": "embedding…", "progress": 70})
         try:
             vectorstore.store_vectors(docs, mets, ids, "default")
-            storage.update_file(fid, {"status": "ok", "meta": f"{pages} pp · {len(docs)} chunks", "progress": None})
+            storage.update_file(fid, {"status": "ok", "meta": f"{pages} pp · {len(docs)} chunks · {tokens} tokens", "progress": None})
         except Exception as e:
             print(f"[vectorstore] document embed failed: {e}")
             storage.update_file(fid, {"status": "error", "meta": f"embed failed: {e}", "progress": None})

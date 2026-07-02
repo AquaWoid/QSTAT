@@ -3,11 +3,15 @@ JSON based persistence.
 
 Layout under Backend/UserData/default/:
   files.json         – file metadata list
-  codebook.json      – codebook state
+  codebook.json      – legacy single-codebook state (migrated on first run)
+  codebooks/         – multi-codebook storage
+    index.json        – [{id, name, createdAt}, ...]
+    {codebookId}.json – codebook state, same shape as legacy codebook.json
   uploads/           – raw uploaded blobs ({fileId}.{ext})
   transcripts/       – transcript turns ({fileId}.json)
 """
 import json, uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -18,7 +22,9 @@ UPLOADS_DIR = BASE_DIR / "uploads"
 MARKDOWN_DIR = UPLOADS_DIR / "markdown"
 TRANSCRIPTS_DIR = BASE_DIR / "transcripts"
 FILES_JSON = BASE_DIR / "files.json"
-CODEBOOK_JSON = BASE_DIR / "codebook.json"
+CODEBOOK_JSON = BASE_DIR / "codebook.json"  # legacy, read once for migration
+CODEBOOKS_DIR = BASE_DIR / "codebooks"
+CODEBOOKS_INDEX = CODEBOOKS_DIR / "index.json"
 CONFIGS_JSON = BASE_DIR / "configs.json"
 
 # In-memory async-job tracker: {jobId: {status, progress, fileId, error?}}
@@ -114,17 +120,117 @@ def load_transcript(file_id: str) -> Optional[list]:
     return _rj(TRANSCRIPTS_DIR / f"{file_id}.json", None)
 
 
-# ── Codebook ─────────────────────────────────────────────────────────────────
+# ── Codebooks ────────────────────────────────────────────────────────────────
 
 DEFAULT_CODEBOOK: list = []
 
 
-def load_codebook() -> list:
-    return _rj(CODEBOOK_JSON, DEFAULT_CODEBOOK)
+def _codebook_path(codebook_id: str) -> Path:
+    return CODEBOOKS_DIR / f"{codebook_id}.json"
 
 
-def save_codebook(codebook: list):
-    _wj(CODEBOOK_JSON, codebook)
+def _ensure_codebooks_initialized():
+    """One-time migration: wrap the legacy single codebook.json into codebooks/."""
+    if CODEBOOKS_INDEX.exists():
+        return
+    _ensure(CODEBOOKS_DIR)
+    legacy = _rj(CODEBOOK_JSON, DEFAULT_CODEBOOK)
+    cb_id = str(uuid.uuid4())[:8]
+    meta = {"id": cb_id, "name": "Codebook 1", "createdAt": datetime.now(timezone.utc).isoformat()}
+    _wj(CODEBOOKS_INDEX, [meta])
+    _wj(_codebook_path(cb_id), legacy)
+    set_active_codebook_id(cb_id)
+
+
+def list_codebooks() -> list:
+    _ensure_codebooks_initialized()
+    return _rj(CODEBOOKS_INDEX, [])
+
+
+def get_active_codebook_id() -> str:
+    _ensure_codebooks_initialized()
+    cfg = load_config()
+    active = cfg.get("activeCodebookId")
+    index = _rj(CODEBOOKS_INDEX, [])
+    if active and any(m["id"] == active for m in index):
+        return active
+    if index:
+        set_active_codebook_id(index[0]["id"])
+        return index[0]["id"]
+    return create_codebook([])["id"]
+
+
+def set_active_codebook_id(codebook_id: str):
+    cfg = load_config()
+    cfg["activeCodebookId"] = codebook_id
+    save_config(cfg)
+
+
+def load_codebook(codebook_id: Optional[str] = None) -> list:
+    codebook_id = codebook_id or get_active_codebook_id()
+    return _rj(_codebook_path(codebook_id), DEFAULT_CODEBOOK)
+
+
+def save_codebook(codebook: list, codebook_id: Optional[str] = None):
+    codebook_id = codebook_id or get_active_codebook_id()
+    _wj(_codebook_path(codebook_id), codebook)
+
+def add_filename_to_ids(items: list[dict], filename: str) -> list[dict]:
+    file_prefix = Path(filename).stem
+
+    def update_item(item: dict) -> None:
+        if "id" in item:
+            item["id"] = f"{file_prefix}_{item['id']}"
+        for child in item.get("children", []):
+            update_item(child)
+
+    for item in items:
+        update_item(item)
+
+    return items
+
+
+def create_codebook(codes: list, name: Optional[str] = None) -> dict:
+    """Create a new codebook, make it active, and return its {id, name, createdAt}."""
+    _ensure_codebooks_initialized()
+    index = _rj(CODEBOOKS_INDEX, [])
+    cb_id = str(uuid.uuid4())[:8]
+    meta = {"id": cb_id, "name": name or f"Codebook {len(index) + 1}", "createdAt": datetime.now(timezone.utc).isoformat()}
+    index.append(meta)
+    _wj(CODEBOOKS_INDEX, index)
+    codes = add_filename_to_ids(codes, cb_id)
+    _wj(_codebook_path(cb_id), codes)
+    set_active_codebook_id(cb_id)
+    return meta
+
+
+def rename_codebook(codebook_id: str, name: str) -> Optional[dict]:
+    index = _rj(CODEBOOKS_INDEX, [])
+    for m in index:
+        if m["id"] == codebook_id:
+            m["name"] = name
+            _wj(CODEBOOKS_INDEX, index)
+            return m
+    return None
+
+
+
+
+def delete_codebook(codebook_id: str) -> bool:
+    index = _rj(CODEBOOKS_INDEX, [])
+    new_index = [m for m in index if m["id"] != codebook_id]
+    if len(new_index) == len(index):
+        return False
+    _wj(CODEBOOKS_INDEX, new_index)
+    _codebook_path(codebook_id).unlink(missing_ok=True)
+    cfg = load_config()
+    if cfg.get("activeCodebookId") == codebook_id:
+        if new_index:
+            cfg["activeCodebookId"] = new_index[0]["id"]
+            save_config(cfg)
+        else:
+            create_codebook([])  # keeps at least one codebook around, sets it active
+    return True
 
 
 def patch_code(code_id: str, patch: dict) -> Optional[dict]:

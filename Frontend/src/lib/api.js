@@ -84,6 +84,38 @@ export async function transcribeStatus(jobId) {
   return res.json();
 }
 
+export async function listCodebooks() {
+  const res = await fetch('/api/codebooks');
+  if (!res.ok) throw new Error(`list codebooks failed: ${res.status}`);
+  return res.json();
+}
+
+export async function setActiveCodebook(id) {
+  const res = await fetch('/api/codebooks/active', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id })
+  });
+  if (!res.ok) throw new Error(`switch codebook failed: ${res.status}`);
+  return res.json();
+}
+
+export async function renameCodebook(id, name) {
+  const res = await fetch(`/api/codebooks/${id}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ name })
+  });
+  if (!res.ok) throw new Error(`rename codebook failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteCodebook(id) {
+  const res = await fetch(`/api/codebooks/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`delete codebook failed: ${res.status}`);
+  return res.json();
+}
+
 export async function getCodebook() {
   const res = await fetch('/api/codebook');
   if (!res.ok) throw new Error(`codebook failed: ${res.status}`);
@@ -110,24 +142,25 @@ export async function updateTranscript(fileId, turns) {
   return res.json();
 }
 
-export async function generateDeductiveCodebook(rq) {
-  const res = await fetch('/api/codebook/deduktive', {
+async function postCodebookGenerate(url, body) {
+  const res = await fetch(url, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ rq })
+    body: JSON.stringify(body)
   });
-  if (!res.ok) throw new Error(`deductive codebook failed: ${res.status}`);
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail || `request failed: ${res.status}`);
+  }
   return res.json();
 }
 
+export async function generateDeductiveCodebook(rq) {
+  return postCodebookGenerate('/api/codebook/deduktive', { rq });
+}
+
 export async function generateCodebook(transcript) {
-  const res = await fetch('/api/codebook/generate', {
-    method: 'PUT',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ transcript })
-  });
-  if (!res.ok) throw new Error(`generate codebook failed: ${res.status}`);
-  return res.json();
+  return postCodebookGenerate('/api/codebook/generate', { transcript });
 }
 
 export async function suggestCodes(transcriptId, existing) {

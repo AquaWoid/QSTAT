@@ -2,7 +2,72 @@
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
   import { app } from '$lib/state.svelte.js';
-  import { getCodebook, saveCodebook, generateCodebook, generateDeductiveCodebook, getTranscript } from '$lib/api.js';
+  import {
+    getCodebook, saveCodebook, generateCodebook, generateDeductiveCodebook, getTranscript,
+    listCodebooks, setActiveCodebook, renameCodebook, deleteCodebook
+  } from '$lib/api.js';
+
+  let codebooks = $state(/** @type {Array<{id:string,name:string,createdAt:string}>} */ ([]));
+  let activeCodebookId = $state(/** @type {string | null} */ (null));
+  let cbMenuOpen = $state(false);
+  let renamingCodebook = $state(false);
+
+  let activeCodebookName = $derived(codebooks.find((c) => c.id === activeCodebookId)?.name ?? 'Codebook');
+
+  async function refreshCodebookList() {
+    try {
+      const { items, activeId } = await listCodebooks();
+      codebooks = items;
+      activeCodebookId = activeId;
+    } catch (e) {
+      app.toast(`Could not load codebooks: ${e.message}`);
+    }
+  }
+
+  async function switchCodebook(id) {
+    cbMenuOpen = false;
+    if (id === activeCodebookId) return;
+    try {
+      const { activeId, codebook } = await setActiveCodebook(id);
+      activeCodebookId = activeId;
+      app.codebook = codebook;
+    } catch (e) {
+      app.toast(`Could not switch codebook: ${e.message}`);
+    }
+  }
+
+  function startRenameCodebook(e) {
+    cbMenuOpen = false;
+    renamingCodebook = true;
+    setTimeout(() => /** @type {HTMLElement} */ (e.target).focus(), 0);
+  }
+
+  async function finishRenameCodebook(newName) {
+    renamingCodebook = false;
+    const name = (newName || '').trim();
+    const current = codebooks.find((c) => c.id === activeCodebookId);
+    if (!name || !activeCodebookId || current?.name === name) return;
+    try {
+      await renameCodebook(activeCodebookId, name);
+      codebooks = codebooks.map((c) => (c.id === activeCodebookId ? { ...c, name } : c));
+    } catch (e) {
+      app.toast(`Rename failed: ${e.message}`);
+    }
+  }
+
+  async function handleDeleteCodebook(id, e) {
+    e.stopPropagation();
+    if (codebooks.length <= 1) { app.toast('Cannot delete the only codebook'); return; }
+    if (!confirm('Delete this codebook?')) return;
+    try {
+      const { items, activeId, codebook } = await deleteCodebook(id);
+      codebooks = items;
+      activeCodebookId = activeId;
+      app.codebook = codebook;
+    } catch (e2) {
+      app.toast(`Delete failed: ${e2.message}`);
+    }
+  }
 
   let query = $state('');
   let editing = $state(/** @type {{id: string, field: 'name'|'desc'} | null} */ (null));
@@ -141,9 +206,9 @@
       const text = turns.map(t =>
         `${t.speaker || 'Speaker'}: ` + (t.segments || []).map(s => s.t).join(' ')
       ).join('\n');
-      await generateCodebook(text);
-      const book = await getCodebook();
-      app.codebook = book;
+      const result = await generateCodebook(text);
+      app.codebook = result.codebook;
+      await refreshCodebookList();
     } catch (e) {
       app.toast(`Generate failed: ${e.message}`);
     } finally {
@@ -159,9 +224,9 @@
     }
     deducting = true;
     try {
-      await generateDeductiveCodebook(app.researchQuestion);
-      const book = await getCodebook();
-      app.codebook = book;
+      const result = await generateDeductiveCodebook(app.researchQuestion);
+      app.codebook = result.codebook;
+      await refreshCodebookList();
     } catch (e) {
       app.toast(`Deductive generation failed: ${e.message}`);
     } finally {
@@ -186,34 +251,75 @@
 
   onMount(async () => {
     try {
-      const book = await getCodebook();
+      const [book] = await Promise.all([getCodebook(), refreshCodebookList()]);
       app.codebook = book;
     } catch (e) {
       app.toast(`Could not load codebook: ${e.message}`);
     }
   });
 
-  // Close menu on outside click
+  // Close menus on outside click
   function onWindowClick(e) {
     if (menuOpenId && !/** @type {HTMLElement} */(e.target).closest('.cb-menu')) {
       menuOpenId = null;
+    }
+    if (cbMenuOpen && !/** @type {HTMLElement} */(e.target).closest('.cb-switcher')) {
+      cbMenuOpen = false;
     }
   }
 </script>
 
 <svelte:window onclick={onWindowClick} />
 
-<div class="pane elev" class:menu-open={menuOpenId !== null}>
+<div class="pane elev" class:menu-open={menuOpenId !== null || cbMenuOpen}>
   <div class="pane-hd">
-    <span class="lbl">Codebook · {totalCount}</span>
+  <!-- 
+      <span class="lbl">Codebook · {totalCount}</span> legacy count  
+  -->
+    <span class="lbl">Codebook</span>
     <div class="actions">
     <!-- Sort disabled for now, might reintroduce later
-       <button class="iconbtn" title="Sort"><Icon name="sort" /></button>     
+       <button class="iconbtn" title="Sort"><Icon name="sort" /></button>
     -->
 
       <button class="iconbtn" title="New group" onclick={() => { addingGroup = !addingGroup; }}>
         <Icon name="plus" />
       </button>
+    </div>
+  </div>
+  <div class="cb-switcher-row">
+    <div class="cb-switcher">
+      <button class="cb-switcher-btn" onclick={() => (cbMenuOpen = !cbMenuOpen)}>
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <span
+          class="cb-switcher-name"
+          contenteditable={renamingCodebook}
+          role="textbox"
+          tabindex="-1"
+          ondblclick={(e) => { e.stopPropagation(); startRenameCodebook(e); }}
+          onclick={(e) => { if (renamingCodebook) e.stopPropagation(); }}
+          onblur={(e) => finishRenameCodebook(/** @type {HTMLElement} */ (e.target).textContent)}
+          onkeydown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); /** @type {HTMLElement} */ (e.target).blur(); }
+            if (e.key === 'Escape') { /** @type {HTMLElement} */ (e.target).textContent = activeCodebookName; /** @type {HTMLElement} */ (e.target).blur(); }
+          }}
+        >{activeCodebookName}</span>
+        <Icon name="chev-down" size={10} />
+      </button>
+      {#if cbMenuOpen}
+        <div class="cb-switcher-dropdown" role="menu">
+          {#each codebooks as cb (cb.id)}
+            <div class="cb-switcher-item" class:active={cb.id === activeCodebookId}>
+              <button role="menuitem" onclick={() => switchCodebook(cb.id)}>{cb.name}</button>
+              <button
+                class="cb-switcher-del"
+                title="Delete codebook"
+                onclick={(e) => handleDeleteCodebook(cb.id, e)}
+              >✕</button>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </div>
   <div class="cb-search">
@@ -391,6 +497,80 @@
 
 <style>
   .menu-open { position: relative; z-index: 10; }
+  .cb-switcher-row {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--hair);
+  }
+  .cb-switcher { position: relative; }
+  .cb-switcher-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 6px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--ink);
+    background: var(--bg-sunk);
+    border: 1px solid var(--hair);
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .cb-switcher-btn :global(svg) { margin-left: auto; opacity: 0.6; }
+  .cb-switcher-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    outline: none;
+  }
+  .cb-switcher-name[contenteditable="true"] {
+    background: var(--bg-elev);
+    border-radius: 3px;
+    padding: 0 2px;
+  }
+  .cb-switcher-dropdown {
+    position: absolute;
+    left: 0; right: 0; top: calc(100% + 2px);
+    background: var(--bg-elev);
+    border: 1px solid var(--hair);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+    z-index: 100;
+    overflow: hidden;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .cb-switcher-item {
+    display: flex;
+    align-items: center;
+  }
+  .cb-switcher-item.active { background: var(--bg-sunk); }
+  .cb-switcher-item button[role="menuitem"] {
+    flex: 1;
+    text-align: left;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--ink-2);
+    background: none;
+    border: none;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cb-switcher-item button[role="menuitem"]:hover { background: var(--bg-sunk); color: var(--ink); }
+  .cb-switcher-del {
+    padding: 6px 10px;
+    font-size: 9px;
+    color: var(--ink-4);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .cb-switcher-del:hover { color: oklch(0.6 0.15 30); }
   .cb-add-group {
     padding: 8px;
     border-bottom: 1px solid var(--hair);
