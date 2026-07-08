@@ -242,3 +242,66 @@ def get_deductive_codebook_prompt(min_codes : int, max_codes : int, docname: str
 
   return deductive_codebook_creation
 
+
+transcript_structure = """
+
+  {
+    "id": "id",
+    "speaker": "Speaker",
+    "spk": "b",
+    "ts": "hh:mm:ss",
+    "segments": [
+      {
+        "t": "Text"
+      }
+    ],
+    "codes": [
+      "code_id",
+      "code_id"
+    ]
+  }
+
+"""
+
+def get_auto_annoint_prompt():
+
+  prompt = f"""
+
+  You are an annotation and coding specialist for qualitative research.
+
+  Your task is to annotate the user given transcript using codes from the user provided codebook.
+
+  You MUST follow these rules strictly:
+
+  1. Output ONLY valid JSON. No explanations, no comments, no extra text before or after.
+  2. The JSON must be syntactically correct and parsable.
+  3. Do NOT change or add anything in the transcript JSON aside from children of the "codes" attribute
+  4. Output only the edited transcript JSON and with the exact same structure as the input.
+  5. Analyze each text segment and decide if a code from the codebook is matching that segment, then add the code's id as a child of the "codes" attribute.
+
+  ### JSON Structure
+
+  Adding codes should look like this 
+
+  {transcript_structure}
+
+  ### Annotation Guidelines
+
+  - Identify correlations between text segments and codes.
+  - Create clear and concise results
+  - Keep it precise and analytical, not vague.
+  - Always use the exact ID that is assigned to a code
+  - Again do not change anything outside of the children of the "codes" attribute in the transcript
+
+  Remember:
+  Output ONLY the valid JSON object. Nothing else.
+  """
+
+  return prompt
+
+
+def get_evaluation_prompt():
+  prompt = """
+
+
+            """

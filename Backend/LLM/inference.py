@@ -33,6 +33,20 @@ def _get_active_model() -> tuple:
     headers = {"Authorization": f"Bearer {or_key}"} if kind != "local" else {}
     return model_id, url, headers
 
+def get_active_codebook():
+
+    config = storage.load_config()
+    active_codebook_id = config.get("activeCodebookId")
+    active_codebook_path = active_codebook_id + ".json"
+
+    CB_PATH = Path(__file__).parent.parent / "UserData" / "default" / "codebooks"
+    codebook_text = ""
+
+    with open(CB_PATH / active_codebook_path, "r", encoding="utf-8") as f:
+        codebook_text = f.read()
+        return codebook_text
+
+
 
 def resolve_response_message(response):
     content = response.json()["choices"][0]["message"]["content"]
@@ -41,12 +55,17 @@ def resolve_response_message(response):
     return message
 
 
+
 # QualScope SSE streaming 
 
 def stream_chat_qualscope(payload: dict):
 
     messages = payload.get("messages", [])
     print("MESSAGES:: ", messages)
+
+    if "/analyze-codebook" in messages[-1]["content"]:
+        print("- - - - - ANALYZE CODEBOOK - Command Found - - - - - - -")
+
     rag_cfg = payload.get("rag", {"on": False, "scope": "all"})
 
     _cfg_model, _cfg_url, _cfg_auth = _get_active_model()
@@ -63,36 +82,6 @@ def stream_chat_qualscope(payload: dict):
         **auth,
     }
 
-    cite_id = max(100, int(payload.get("nextCiteId", 100)))
-    retrieved_chunks = []
-    
-    # RAG retrieval
-    if rag_cfg.get("on") and messages:
-        query = messages[-1]["content"] if messages else ""
-        try:
-            chunks = RAG.retrieve_chunks("default", query, n=8)
-            for chunk in chunks:
-                event = {
-                    "type": "cite",
-                    "value": {
-                        "id": cite_id,
-                        "kind": "d",
-                        "file": chunk["file"],
-                        "fileId": chunk["fileId"],
-                        "page": chunk.get("page", 1),
-                        "score": chunk["score"],
-                        "preview": chunk["preview"],
-                        "chunkType": chunk.get("chunkType", "document"),
-                        "turnId": chunk.get("turnId"),
-                        "ts": chunk.get("ts"),
-                    },
-                }
-                yield f"data: {json.dumps(event)}\n\n"
-                retrieved_chunks.append({"id": cite_id, **chunk})
-                cite_id += 1
-        except Exception:
-            pass
-
     # System Prompt building
     sys_content = (
         "You are QSTAT, an AI assistant for qualitative researchers. "
@@ -100,15 +89,53 @@ def stream_chat_qualscope(payload: dict):
         "Help analyse interview transcripts and research documents with precision. "
         "Format responses in markdown. "
     )
-    if retrieved_chunks:
-        source_block = "\n\n".join(
-            f"[^{chunk['id']}] **{chunk['file']}** (p.{chunk['page']}, relevance {chunk['score']:.2f}):\n{chunk['preview']}"
-            for chunk in retrieved_chunks
-        )
-        sys_content += (
-            "\n\nWhen referencing the sources below, use [^N] inline notation "
-            "(e.g. [^100]). Available sources:\n\n" + source_block
-        )
+
+    if "/analyze-codebook" in messages[-1]["content"]:
+        print("- - - - - ANALYZE CODEBOOK - Command Found")
+        sys_content += f"Analyze the following codebook and give meaninfull insights about it. Codebook: {get_active_codebook()}"
+    else:
+
+        cite_id = max(100, int(payload.get("nextCiteId", 100)))
+        retrieved_chunks = []
+        
+        # RAG retrieval
+        if rag_cfg.get("on") and messages:
+            query = messages[-1]["content"] if messages else ""
+
+            try:
+                chunks = RAG.retrieve_chunks("default", query, n=8)
+                for chunk in chunks:
+                    event = {
+                        "type": "cite",
+                        "value": {
+                            "id": cite_id,
+                            "kind": "d",
+                            "file": chunk["file"],
+                            "fileId": chunk["fileId"],
+                            "page": chunk.get("page", 1),
+                            "score": chunk["score"],
+                            "preview": chunk["preview"],
+                            "chunkType": chunk.get("chunkType", "document"),
+                            "turnId": chunk.get("turnId"),
+                            "ts": chunk.get("ts"),
+                        },
+                    }
+                    yield f"data: {json.dumps(event)}\n\n"
+                    retrieved_chunks.append({"id": cite_id, **chunk})
+                    cite_id += 1
+            except Exception:
+                pass
+
+
+        if retrieved_chunks:
+            source_block = "\n\n".join(
+                f"[^{chunk['id']}] **{chunk['file']}** (p.{chunk['page']}, relevance {chunk['score']:.2f}):\n{chunk['preview']}"
+                for chunk in retrieved_chunks
+            )
+            sys_content += (
+                "\n\nWhen referencing the sources below, use [^N] inline notation "
+                "(e.g. [^100]). Available sources:\n\n" + source_block
+            )
 
     full_messages = [{"role": "system", "content": sys_content}] + messages
 
@@ -245,9 +272,77 @@ def generate_deductive(research_question: str, document: str, document_id: str):
     return []
 
 
+def evaluate_deductive_codebook():
+    return True
+
+
+
+
+def auto_annotate(transcript: str):
+
+    codebook_text = get_active_codebook()
+
+
+    model_id, url, auth = _get_active_model()
+    print(
+        "\n---------------- AUTO ANNOTATION ----------------------\n\n",
+        "Modelid" , model_id, "url", url, "auth: ", auth, "\n\n",
+        "---------------- AUTO ANNOTATION ----------------------\n"
+    )
+
+    prompt = f"""
+    #### Transcript 
+    {transcript}
+    #### Codebook
+    {codebook_text}
+            """
+    
+    try:
+        response = requests.post(
+            url,
+            headers=auth,
+            json={
+                "model": model_id,
+                "messages": [
+                    {"role": "system", "content": system_prompts.get_auto_annoint_prompt()},
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+                "chat_template_kwargs": {"enable_thinking": False},
+            },
+            timeout=1200,
+        )
+        message = resolve_response_message(response)
+        #print("response output:", response)
+        #print("message output: ", message)
+        if message:
+            print("message group output ", message.group(0))
+            return json.loads(message.group(0))
+    except Exception as e:
+        print("ERROR: ", e)
+        pass
+    return []
+
+
+
+def debug_auto_anno():
+    
+    # "b6127f59.json"
+
+    T_PATH = Path(__file__).parent.parent / "UserData" / "default" / "transcripts" / "autoannotest.json"
+    with open(T_PATH, "r", encoding="utf-8") as f:
+        transcript = f.read()
+
+    #print(transcript)
+    auto_annotate(transcript)
+
+#debug_auto_anno()
+#auto_annotate("test")
+
+
 
 #deductive_agent("How can we leverage machine learning for qualitative research?")
-
+#Legacy Function - Will be removed soon
 def generate_deductive_codebook(research_question: str):
     model_id, url, auth = _get_active_model()
     prompt = "Research Question: " + research_question
