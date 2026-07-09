@@ -1,9 +1,10 @@
 <script>
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
-  import { app } from '$lib/state.svelte.js';
+  import { app, codebookWithCounts } from '$lib/state.svelte.js';
   import {
     getCodebook, saveCodebook, generateCodebook, generateDeductiveCodebook, getTranscript,
+    autoAnnotateTranscript,
     listCodebooks, setActiveCodebook, renameCodebook, deleteCodebook
   } from '$lib/api.js';
 
@@ -73,6 +74,7 @@
   let editing = $state(/** @type {{id: string, field: 'name'|'desc'} | null} */ (null));
   let generating = $state(false);
   let deducting = $state(false);
+  let annotating = $state(false);
   let expandedDescs = $state(/** @type {Set<string>} */ (new Set()));
 
   function toggleDesc(id) {
@@ -231,6 +233,22 @@
       app.toast(`Deductive generation failed: ${e.message}`);
     } finally {
       deducting = false;
+    }
+  }
+
+  async function handleAutoAnnotate() {
+    if (!app.activeFile) { app.toast('No transcript selected'); return; }
+    annotating = true;
+    try {
+      const { turns } = await autoAnnotateTranscript(app.activeFile);
+      const updatedBook = codebookWithCounts(app.codebook, turns);
+      app.codebook = updatedBook;
+      await saveCodebook(updatedBook);
+      app.bumpTranscriptVersion();
+    } catch (e) {
+      app.toast(`Auto annotation failed: ${e.message}`);
+    } finally {
+      annotating = false;
     }
   }
 
@@ -485,11 +503,14 @@
     </div>
 
     <div class="cb-foot">
-      <button class="primary" onclick={handleGenerate} disabled={generating || deducting}>
+      <button class="primary" onclick={handleGenerate} disabled={generating || deducting || annotating}>
         {generating ? 'generating…' : '✦ Generate'}
       </button>
-      <button class="primary" onclick={handleDeductive} disabled={deducting || generating}>
+      <button class="primary" onclick={handleDeductive} disabled={deducting || generating || annotating}>
         {deducting ? 'generating…' : '✦ Deductive'}
+      </button>
+      <button class="primary" onclick={handleAutoAnnotate} disabled={annotating || generating || deducting}>
+        {annotating ? 'Applying Codes…' : '✦ Apply Codes'}
       </button>
     </div>
   </div>

@@ -51,6 +51,8 @@ function createState() {
   let citeFlash  = $state(/** @type {number | null} */ (null));
   /** Turn ID to scroll to after a transcript loads — set by cite() for transcript chunks. */
   let pendingTurnScroll = $state(/** @type {string | null} */ (null));
+  /** Bumped whenever the active transcript is rewritten out-of-band (e.g. auto-annotation), so TranscriptPane knows to refetch. */
+  let transcriptVersion = $state(0);
 
   let tweaks = $state({ ...TWEAK_DEFAULTS, ...(loadTweaks() ?? {}) });
   let tweaksOpen = $state(false);
@@ -89,6 +91,8 @@ function createState() {
     set citeFlash(v)   { citeFlash = v; },
     get pendingTurnScroll()  { return pendingTurnScroll; },
     set pendingTurnScroll(v) { pendingTurnScroll = v; },
+    get transcriptVersion() { return transcriptVersion; },
+    bumpTranscriptVersion() { transcriptVersion++; },
 
     // ── Tweaks ─────────────────────────────────────────────────────────────
     get tweaksOpen()      { return tweaksOpen; },
@@ -175,6 +179,20 @@ export const app = createState();
 export function codeColor(codebook, codeId) {
   for (const g of codebook) for (const c of g.children) if (c.id === codeId) return c.color;
   return '1';
+}
+
+/** Recompute per-code and per-group counts from transcript turns' `codes` arrays. */
+export function codebookWithCounts(codebook, turns) {
+  const counts = {};
+  for (const turn of turns) {
+    for (const codeId of (turn.codes ?? [])) {
+      counts[codeId] = (counts[codeId] ?? 0) + 1;
+    }
+  }
+  return codebook.map((g) => {
+    const children = g.children.map((c) => ({ ...c, count: counts[c.id] ?? 0 }));
+    return { ...g, children, count: children.reduce((n, c) => n + c.count, 0) };
+  });
 }
 
 export function fmtTime(secs) {

@@ -307,6 +307,21 @@ def generate_deductive_codebook(body: dict):
     return {"ok": True, **meta, "codebook": result}
 
 
+@app.put("/codebook/annotate")
+def auto_annotate_transcript(body: dict):
+    file_id = body.get("fileId")
+    if not file_id:
+        raise HTTPException(400, "fileId required")
+    turns = storage.load_transcript(file_id)
+    if turns is None:
+        raise HTTPException(404, "Transcript not available")
+    print("Auto Annotate Called! File:", file_id)
+    result = LLM.auto_annotate(json.dumps(turns, ensure_ascii=False))
+    if not result:
+        raise HTTPException(422, "Annotation returned no result")
+    storage.save_transcript(file_id, result)
+    return {"ok": True, "turns": result}
+
 
 @app.patch("/codebook/{code_id}")
 def patch_code(code_id: str, patch: dict):

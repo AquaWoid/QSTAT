@@ -163,6 +163,10 @@ export async function generateCodebook(transcript) {
   return postCodebookGenerate('/api/codebook/generate', { transcript });
 }
 
+export async function autoAnnotateTranscript(fileId) {
+  return postCodebookGenerate('/api/codebook/annotate', { fileId });
+}
+
 export async function suggestCodes(transcriptId, existing) {
   const res = await fetch('/api/codebook', {
     method: 'POST',

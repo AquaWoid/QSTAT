@@ -1,7 +1,7 @@
 <script>
   import Icon from '$lib/Icon.svelte';
   import Waveform from './Waveform.svelte';
-  import { app, codeColor, fmtTime } from '$lib/state.svelte.js';
+  import { app, codeColor, codebookWithCounts, fmtTime } from '$lib/state.svelte.js';
   import { getTranscript, updateTranscript, saveCodebook } from '$lib/api.js';
 
   let playing = $state(false);
@@ -81,6 +81,7 @@
   // Fetch transcript on file change
   $effect(() => {
     const fid = app.activeFile;
+    const _v = app.transcriptVersion;
     if (!fid) return;
     transcript = [];
     noTranscript = false;
@@ -130,16 +131,7 @@
   function onEnded() { playing = false; }
 
   function updateCodeCounts(updatedTranscript) {
-    const counts = {};
-    for (const turn of updatedTranscript) {
-      for (const codeId of (turn.codes ?? [])) {
-        counts[codeId] = (counts[codeId] ?? 0) + 1;
-      }
-    }
-    const updatedBook = app.codebook.map((g) => {
-      const children = g.children.map((c) => ({ ...c, count: counts[c.id] ?? 0 }));
-      return { ...g, children, count: children.reduce((n, c) => n + c.count, 0) };
-    });
+    const updatedBook = codebookWithCounts(app.codebook, updatedTranscript);
     app.codebook = updatedBook;
     saveCodebook(updatedBook).catch((e) => app.toast(`Codebook save failed: ${e.message}`));
   }
