@@ -51,7 +51,7 @@ def get_active_codebook():
 def resolve_response_message(response):
     content = response.json()["choices"][0]["message"]["content"]
     content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-    message = re.search(r"\[.*\]", content, re.DOTALL)
+    message = re.search(r"[\{\[].*[\}\]]", content, re.DOTALL)
     return message
 
 
@@ -297,6 +297,9 @@ def auto_annotate(transcript: str):
     {codebook_text}
             """
     
+    system_prompt = system_prompts.get_auto_annoint_prompt_compact()
+    #system_prompt = system_prompts.get_auto_annoint_prompt()
+
     try:
         response = requests.post(
             url,
@@ -304,7 +307,7 @@ def auto_annotate(transcript: str):
             json={
                 "model": model_id,
                 "messages": [
-                    {"role": "system", "content": system_prompts.get_auto_annoint_prompt()},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 "stream": False,
@@ -324,6 +327,18 @@ def auto_annotate(transcript: str):
     return []
 
 
+def auto_annotation_agent(transcript: str):
+
+
+    annotations = auto_annotate(transcript)
+
+    transcript_json = json.loads(transcript)
+
+    for item in transcript_json:
+        item["codes"] = annotations.get(item["id"], [])
+
+
+    return transcript_json
 
 def debug_auto_anno():
     
@@ -334,7 +349,7 @@ def debug_auto_anno():
         transcript = f.read()
 
     #print(transcript)
-    auto_annotate(transcript)
+    print(auto_annotation_agent(transcript))
 
 #debug_auto_anno()
 #auto_annotate("test")

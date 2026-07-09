@@ -316,7 +316,7 @@ def auto_annotate_transcript(body: dict):
     if turns is None:
         raise HTTPException(404, "Transcript not available")
     print("Auto Annotate Called! File:", file_id)
-    result = LLM.auto_annotate(json.dumps(turns, ensure_ascii=False))
+    result = LLM.auto_annotation_agent(json.dumps(turns, ensure_ascii=False))
     if not result:
         raise HTTPException(422, "Annotation returned no result")
     storage.save_transcript(file_id, result)

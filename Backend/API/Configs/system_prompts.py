@@ -299,6 +299,45 @@ def get_auto_annoint_prompt():
 
   return prompt
 
+compact_output_structure = """{"t01": ["code_id","code_id"], "t02": ["code_id"], "t03": []}"""
+
+
+def get_auto_annoint_prompt_compact():
+
+  prompt = f"""
+
+  You are an annotation and coding specialist for qualitative research.
+
+  Your task is to annotate the user given transcript using codes from the user provided codebook.
+
+  You MUST follow these rules strictly:
+
+  1. Analyze each text segment and decide if a code from the codebook is matching that segment.
+  2. Output ONLY valid JSON. No explanations, no comments, no extra text before or after.
+  3. The JSON must be syntactically correct and parsable.
+
+
+  ### JSON Structure
+
+  The Output Structure should look like this:
+
+  {compact_output_structure}
+
+  ### Annotation Guidelines
+
+  - Identify correlations between text segments and codes.
+  - Take code descriptions into account
+  - Create clear and concise results
+  - Keep it precise and analytical, not vague.
+  - Always use the exact ID that is assigned to a code
+
+  Remember:
+  Output ONLY the valid JSON object. Nothing else.
+  """
+
+  return prompt
+
+
 
 def get_evaluation_prompt():
   prompt = """
