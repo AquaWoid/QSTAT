@@ -59,6 +59,7 @@ function createState() {
 
   let tweaks = $state({ ...TWEAK_DEFAULTS, ...(loadTweaks() ?? {}) });
   let tweaksOpen = $state(false);
+  let logsOpen = $state(false);
 
   // Chat thread — array of {role, content, id, ts, citeIds?}
   let messages = $state(/** @type {Array<{role:string,content:string,id:string,ts:string,citeIds?:number[]}>} */ ([]));
@@ -111,6 +112,11 @@ function createState() {
       tweaks = { ...tweaks, [key]: value };
       saveTweaks(tweaks);
     },
+
+    // ── Logs ───────────────────────────────────────────────────────────────
+    get logsOpen()  { return logsOpen; },
+    set logsOpen(v) { logsOpen = v; },
+    toggleLogs()    { logsOpen = !logsOpen; },
 
     // ── Messages (chat thread) ─────────────────────────────────────────────
     get messages()     { return messages; },

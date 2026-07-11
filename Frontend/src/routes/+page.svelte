@@ -5,6 +5,7 @@
   import CodebookPane from '$lib/components/CodebookPane.svelte';
   import ChatPane from '$lib/components/ChatPane.svelte';
   import Tweaks from '$lib/components/Tweaks.svelte';
+  import LogWindow from '$lib/components/LogWindow.svelte';
   import Toast from '$lib/components/Toast.svelte';
   import { app } from '$lib/state.svelte.js';
   import { PROJECT } from '$lib/data.js';
@@ -30,4 +31,5 @@
 </div>
 
 <Tweaks />
+<LogWindow />
 <Toast />

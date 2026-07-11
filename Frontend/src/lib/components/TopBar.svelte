@@ -31,6 +31,7 @@
     {/if}
     <span>{app.files.length} files · {codeCount} codes · {transcriptCount} transcripts</span>
   </div>
+  <button class="iconbtn" class:active={app.logsOpen} title="Console" onclick={() => app.toggleLogs()}><Icon name="console" /></button>
   <button class="iconbtn" class:active={app.tweaksOpen} title="Tweaks" onclick={() => app.toggleTweaks()}><Icon name="settings" /></button>
 </div>
 

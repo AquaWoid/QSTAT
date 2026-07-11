@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Body, Request
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import os, uuid, asyncio, json, threading
@@ -6,6 +6,7 @@ import os, uuid, asyncio, json, threading
 import SST.speech_recognition as speech_recognition
 import LLM.inference as LLM
 import API.storage as storage
+from Utility.log import log_queue, set_loop as set_log_loop
 from LLM.available_models import get_available_models
 import LLM.tokenizer as tokenizer
 app = FastAPI(title="QualScope API")
@@ -17,6 +18,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def _register_log_loop():
+    set_log_loop(asyncio.get_running_loop())
 
 VALID_EXTS = {
     ".mp3": "mp3", ".mp4": "mp3",
@@ -30,6 +35,26 @@ VALID_EXTS = {
 @app.get("/")
 def health():
     return {"status": "ok"}
+
+@app.get("/logs")
+async def stream_logs(request: Request) -> StreamingResponse:
+    async def event_generator():
+        while True:
+            if await request.is_disconnected():
+                break
+
+            log = await log_queue.get()
+
+            yield f"data: {json.dumps(log)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )   
 
 
 # ── Files ─────────────────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import LLM.tokenizer as tokenizer
 import API.storage as storage
 #current_dir = Path(__file__).resolve().parent
 #env_path = current_dir.parent / ".env"
+from Utility.log import send_log as log
 
 #load_dotenv(env_path)
 
@@ -123,7 +124,8 @@ def stream_chat_qualscope(payload: dict):
                     yield f"data: {json.dumps(event)}\n\n"
                     retrieved_chunks.append({"id": cite_id, **chunk})
                     cite_id += 1
-            except Exception:
+            except Exception as e:
+                log(f"Error: {e} ")
                 pass
 
 
@@ -180,6 +182,7 @@ def stream_chat_qualscope(payload: dict):
                     except Exception:
                         pass
     except Exception as e:
+        log(f"Error: {e} ")
         yield f"data: {json.dumps({'type': 'token', 'value': f'[Error connecting to LLM: {e}]'})}\n\n"
 
     yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -197,8 +200,11 @@ def deductive_agent(research_question: str):
     active = cfg.get("activeModel", {})
     model_kind = active.get("kind", "cloud")
 
+    log("Starting deductive codebook generation")
+
     for i, file in enumerate(os.listdir(MD_DIR)):
 
+        log(f"File # {i+1} : {file}")
         print("File #", i+1, " : ", file)
         with open(MD_DIR / file, "r") as f:
             document_text = f.read()
@@ -207,11 +213,13 @@ def deductive_agent(research_question: str):
                 status = f"processing  {i+1} of {len(os.listdir(MD_DIR))}"
                 #yield {"type" : "status", "message" : status}
                 print(status)
+                log(status)
                 codebook = generate_deductive(research_question, document_text, Path(file).stem)
                 codebook_combined.extend(codebook)
                 codebooks_validated = json.dumps(codebook_combined, indent=2, ensure_ascii=False)
             else:
                 print("- - - - - - DOCUMENT TOO LARGE FOR CONTEXT WINDOW - - - - - -")
+                log("Document too large for context window, skipping...")
 
 
     print(
@@ -225,15 +233,7 @@ def deductive_agent(research_question: str):
     return codebook_combined
   
 
-"""
-    model_id, url, auth = _get_active_model()    
-    
-    print(
-        "\n----------------DEDUCTIVE CODEBOOK - AGENTIC FLOW----------------------\n\n",
-        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Research Question: ", research_question, "\n\n",
-        "----------------DEDUCTIVE CODEBOOK - AGENTIC FLOW----------------------\n"
-    )  
-"""
+
             
     
 
@@ -242,6 +242,8 @@ def deductive_agent(research_question: str):
 def generate_deductive(research_question: str, document: str, document_id: str):
     model_id, url, auth = _get_active_model()
     prompt = "Research Question: " + research_question + "\n" + "Document: \n" + document
+
+
     print(
         "\n----------------DEDUCTIVE CODEBOOK----------------------\n\n",
         "Modelid" , model_id, "url", url, "auth: ", auth, "\n RQ: ", research_question, "\n\n",
@@ -266,8 +268,10 @@ def generate_deductive(research_question: str, document: str, document_id: str):
         message = resolve_response_message(response)
         if message:
             print("Codebook Output: ", message.group(0))
+            log("Finished generating deductive codebook")
             return json.loads(message.group(0))
-    except Exception:
+    except Exception as e:
+        log(f"Error: {e} ")
         pass
     return []
 
@@ -283,12 +287,14 @@ def auto_annotate(transcript: str):
     codebook_text = get_active_codebook()
 
 
+    
     model_id, url, auth = _get_active_model()
     print(
         "\n---------------- AUTO ANNOTATION ----------------------\n\n",
         "Modelid" , model_id, "url", url, "auth: ", auth, "\n\n",
         "---------------- AUTO ANNOTATION ----------------------\n"
     )
+    log(f"Starting auto annotation with model: {model_id}")
 
     prompt = f"""
     #### Transcript 
@@ -320,8 +326,10 @@ def auto_annotate(transcript: str):
         #print("message output: ", message)
         if message:
             print("message group output ", message.group(0))
+            log("Finished auto annotation")
             return json.loads(message.group(0))
     except Exception as e:
+        log(f"Error: {e}")
         print("ERROR: ", e)
         pass
     return []
@@ -397,12 +405,14 @@ def generate_codebook(transcript_text: str):
     model_id, url, auth = _get_active_model()
     prompt = "Input Text: " + transcript_text
 
+    log(f"Starting inductive codebook generation with model: {model_id}")
 
     print(
         "\n----------------GENERATE CODEBOOK----------------------\n\n",
         "Modelid" , model_id, "url", url, "auth: ", auth, "\n Prompt: ", prompt, "\n\n",
         "----------------GENERATE CODEBOOK----------------------\n"
     )
+
 
     try:
         response = requests.post(
@@ -424,44 +434,16 @@ def generate_codebook(transcript_text: str):
         m = re.search(r"\[.*\]", content, re.DOTALL)
         if m:
             print("Codebook Output: ", m.group(0))
+            log("Finished inductive codebook generation")
             return json.loads(m.group(0))
-    except Exception:
+    except Exception as e:
+        log(f"Error: {e} ")
         pass
     return []
 
 
 
 
-    print(
-        "\n----------------GENERATE CODEBOOK----------------------\n\n",
-        "Modelid" , model_id, "url", url, "auth: ", auth, "\n Prompt: ", prompt, "\n\n",
-        "----------------GENERATE CODEBOOK----------------------\n"
-    )
-
-    try:
-        response = requests.post(
-            url,
-            headers=auth,
-            json={
-                "model": model_id,
-                "messages": [
-                    {"role": "system", "content": system_prompts.get_codebook_prompt(5,15)},
-                    {"role": "user", "content": prompt},
-                ],
-                "stream": False,
-                "chat_template_kwargs": {"enable_thinking": False},
-            },
-            timeout=60,
-        )
-        content = response.json()["choices"][0]["message"]["content"]
-        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-        m = re.search(r"\[.*\]", content, re.DOTALL)
-        if m:
-            print("Codebook Output: ", m.group(0))
-            return json.loads(m.group(0))
-    except Exception:
-        pass
-    return []
 
 # Code suggestion - Legacy Function, kept for backwards compatibility
 def suggest_codes(transcript_text: str, existing_names: list) -> list:

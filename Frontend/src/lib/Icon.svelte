@@ -58,5 +58,9 @@
     <path d="M8 8v3.5" stroke-width="1.75" />
   {:else if name === 'trash'}
     <path d="M3 5h10M6 5V3.5h4V5M4.5 5l.75 8h5.5l.75-8" />
+  {:else if name === 'console'}
+    <rect x="2" y="3" width="12" height="10" rx="1" />
+    <path d="M4.5 6.5 7 8.5 4.5 10.5" />
+    <path d="M8 10.5h3.5" />
   {/if}
 </svg>
