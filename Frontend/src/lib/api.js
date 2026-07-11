@@ -167,6 +167,10 @@ export async function autoAnnotateTranscript(fileId) {
   return postCodebookGenerate('/api/codebook/annotate', { fileId });
 }
 
+export async function mergeCodebooks(ids) {
+  return postCodebookGenerate('/api/codebook/merge', { ids });
+}
+
 export async function suggestCodes(transcriptId, existing) {
   const res = await fetch('/api/codebook', {
     method: 'POST',

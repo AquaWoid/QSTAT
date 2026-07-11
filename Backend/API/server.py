@@ -322,6 +322,14 @@ def auto_annotate_transcript(body: dict):
     storage.save_transcript(file_id, result)
     return {"ok": True, "turns": result}
 
+@app.put("/codebook/merge")
+def merge_codebook(body: dict):
+    from Utility.codebook_merge import merge_codebooks as merge
+    ids = body.get("ids")
+    merge(ids)
+    return {"ok":True}
+
+
 
 @app.patch("/codebook/{code_id}")
 def patch_code(code_id: str, patch: dict):

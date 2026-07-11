@@ -5,7 +5,7 @@
   import {
     getCodebook, saveCodebook, generateCodebook, generateDeductiveCodebook, getTranscript,
     autoAnnotateTranscript,
-    listCodebooks, setActiveCodebook, renameCodebook, deleteCodebook
+    listCodebooks, setActiveCodebook, renameCodebook, deleteCodebook, mergeCodebooks
   } from '$lib/api.js';
 
   let codebooks = $state(/** @type {Array<{id:string,name:string,createdAt:string}>} */ ([]));
@@ -249,6 +249,40 @@
       app.toast(`Auto annotation failed: ${e.message}`);
     } finally {
       annotating = false;
+    }
+  }
+
+  let mergeModalOpen = $state(false);
+  let mergeSelected = $state(/** @type {Set<string>} */ (new Set()));
+  let merging = $state(false);
+
+  function openMergeModal() {
+    mergeSelected = new Set();
+    mergeModalOpen = true;
+  }
+
+  function closeMergeModal() {
+    mergeModalOpen = false;
+  }
+
+  function toggleMergeSelect(id) {
+    const next = new Set(mergeSelected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    mergeSelected = next;
+  }
+
+  async function confirmMerge() {
+    if (mergeSelected.size < 2) { app.toast('Select at least two codebooks to merge'); return; }
+    merging = true;
+    try {
+      await mergeCodebooks([...mergeSelected]);
+      await refreshCodebookList();
+      app.codebook = await getCodebook();
+      mergeModalOpen = false;
+    } catch (e) {
+      app.toast(`Merge failed: ${e.message}`);
+    } finally {
+      merging = false;
     }
   }
 
@@ -502,19 +536,67 @@
 
     </div>
 
-    <div class="cb-foot">
-      <button class="primary" onclick={handleGenerate} disabled={generating || deducting || annotating}>
-        {generating ? 'generating…' : '✦ Generate'}
-      </button>
-      <button class="primary" onclick={handleDeductive} disabled={deducting || generating || annotating}>
-        {deducting ? 'generating…' : '✦ Deductive'}
-      </button>
-      <button class="primary" onclick={handleAutoAnnotate} disabled={annotating || generating || deducting}>
-        {annotating ? 'Applying Codes…' : '✦ Apply Codes'}
-      </button>
+    <div class="cb-foot-wrap">
+      <div class="cb-foot">
+        <button class="primary" onclick={handleGenerate} disabled={generating || deducting || annotating}>
+          {generating ? 'generating…' : '✦ Generate'}
+        </button>
+        <button class="primary" onclick={handleDeductive} disabled={deducting || generating || annotating}>
+          {deducting ? 'generating…' : '✦ Deductive'}
+        </button>
+        <button class="primary" onclick={handleAutoAnnotate} disabled={annotating || generating || deducting}>
+          {annotating ? 'Applying Codes…' : '✦ Apply Codes'}
+        </button>
+      </div>
+      <div class="cb-foot">
+        <button class="primary" onclick={openMergeModal} disabled={generating || deducting || annotating || codebooks.length < 2}>
+          ⋈ Merge codebooks
+        </button>
+      </div>
     </div>
   </div>
 </div>
+
+{#if mergeModalOpen}
+  <div
+    class="modal-backdrop"
+    role="presentation"
+    onclick={(e) => { if (e.target === e.currentTarget) closeMergeModal(); }}
+  >
+    <div class="modal" role="dialog" aria-modal="true" tabindex="-1">
+      <div class="modal-hd">Merge codebooks</div>
+      <div class="modal-body">
+        {#if codebooks.length < 2}
+          <p class="modal-hint">You need at least two codebooks to merge.</p>
+        {:else}
+          <p class="modal-hint">Select the codebooks to merge into a new one.</p>
+          <div class="merge-list">
+            {#each codebooks as cb (cb.id)}
+              <label class="merge-item">
+                <input
+                  type="checkbox"
+                  checked={mergeSelected.has(cb.id)}
+                  onchange={() => toggleMergeSelect(cb.id)}
+                />
+                <span>{cb.name}</span>
+              </label>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      <div class="modal-ft">
+        <button onclick={closeMergeModal} disabled={merging}>Cancel</button>
+        <button
+          class="primary"
+          onclick={confirmMerge}
+          disabled={merging || mergeSelected.size < 2}
+        >
+          {merging ? 'Merging…' : 'OK'}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .menu-open { position: relative; z-index: 10; }
@@ -651,4 +733,76 @@
   .cb-code:hover .del-code { opacity: 1; }
   .cb-code[draggable="true"] { cursor: grab; }
   .cb-code[draggable="true"]:active { cursor: grabbing; }
+
+  .cb-foot-wrap {
+    position: sticky; bottom: 0;
+    background: linear-gradient(to top, var(--bg-elev) 60%, transparent);
+    padding: 16px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cb-foot-wrap .cb-foot {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: oklch(0 0 0 / 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .modal {
+    width: 320px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-elev);
+    border: 1px solid var(--hair);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px oklch(0 0 0 / 0.25);
+  }
+  .modal-hd {
+    padding: 12px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+    border-bottom: 1px solid var(--hair);
+  }
+  .modal-body {
+    padding: 10px 14px;
+    overflow-y: auto;
+  }
+  .modal-hint {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    margin: 0 0 8px;
+  }
+  .merge-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .merge-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px;
+    font-size: 12px;
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+  .merge-item input { cursor: pointer; }
+  .modal-ft {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--hair);
+  }
 </style>
