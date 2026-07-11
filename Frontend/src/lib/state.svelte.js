@@ -41,6 +41,9 @@ function createState() {
   // Files are populated on mount by ContextPane; start empty to avoid spurious poll.
   let files     = $state(/** @type {typeof PROJECT.files} */ ([]));
   let codebook  = $state(CODEBOOK);
+  /** Cross-codebook lookup for resolving codes applied under a codebook that isn't currently active. codeId -> {name, color, codebookId}. */
+  let codeRegistry = $state(/** @type {Record<string, {name: string, color: string, codebookId: string}>} */ ({}));
+  let activeCodebookId = $state(/** @type {string | null} */ (null));
 
   // Citation registry — mutable object so MessageStream can add entries.
   // Initialised with demo cites; live cites accumulate with higher IDs.
@@ -74,6 +77,10 @@ function createState() {
     // ── Codebook ───────────────────────────────────────────────────────────
     get codebook()  { return codebook; },
     set codebook(v) { codebook = v; },
+    get codeRegistry()  { return codeRegistry; },
+    set codeRegistry(v) { codeRegistry = v; },
+    get activeCodebookId()  { return activeCodebookId; },
+    set activeCodebookId(v) { activeCodebookId = v; },
 
     // ── Cites ──────────────────────────────────────────────────────────────
     get cites()     { return cites; },
@@ -176,9 +183,35 @@ export const app = createState();
 
 // ── Template helpers ──────────────────────────────────────────────────────────
 
-export function codeColor(codebook, codeId) {
+/**
+ * Resolve a code's color, preferring the live active codebook (reflects unsaved
+ * edits) and falling back to the cross-codebook registry for codes applied
+ * under a codebook that isn't currently active.
+ */
+export function codeColor(codebook, codeId, registry = {}) {
   for (const g of codebook) for (const c of g.children) if (c.id === codeId) return c.color;
-  return '1';
+  return registry[codeId]?.color ?? '1';
+}
+
+/** Resolve a code's display name the same way as codeColor(); falls back to the raw ID. */
+export function codeName(codebook, codeId, registry = {}) {
+  for (const g of codebook) for (const c of g.children) if (c.id === codeId) return c.name;
+  return registry[codeId]?.name ?? codeId;
+}
+
+/** Fetch every codebook's contents and index their codes by id, for cross-codebook lookups. */
+export async function buildCodeRegistry(codebookMetas, getCodebookById) {
+  const books = await Promise.all(codebookMetas.map((cb) => getCodebookById(cb.id)));
+  const registry = {};
+  books.forEach((book, i) => {
+    const codebookId = codebookMetas[i].id;
+    for (const g of book) {
+      for (const c of g.children) {
+        registry[c.id] = { name: c.name, color: c.color, codebookId };
+      }
+    }
+  });
+  return registry;
 }
 
 /** Recompute per-code and per-group counts from transcript turns' `codes` arrays. */

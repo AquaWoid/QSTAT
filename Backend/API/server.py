@@ -217,6 +217,13 @@ def list_codebooks():
     return {"items": storage.list_codebooks(), "activeId": storage.get_active_codebook_id()}
 
 
+@app.get("/codebooks/{codebook_id}")
+def get_codebook_by_id(codebook_id: str):
+    if not any(m["id"] == codebook_id for m in storage.list_codebooks()):
+        raise HTTPException(404, "Codebook not found")
+    return storage.load_codebook(codebook_id)
+
+
 @app.put("/codebooks/active")
 def set_active_codebook(body: dict):
     cb_id = body.get("id")

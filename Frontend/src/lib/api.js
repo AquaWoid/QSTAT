@@ -90,6 +90,12 @@ export async function listCodebooks() {
   return res.json();
 }
 
+export async function getCodebookById(id) {
+  const res = await fetch(`/api/codebooks/${id}`);
+  if (!res.ok) throw new Error(`codebook fetch failed: ${res.status}`);
+  return res.json();
+}
+
 export async function setActiveCodebook(id) {
   const res = await fetch('/api/codebooks/active', {
     method: 'PUT',

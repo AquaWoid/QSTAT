@@ -1,8 +1,8 @@
 <script>
   import Icon from '$lib/Icon.svelte';
   import Waveform from './Waveform.svelte';
-  import { app, codeColor, codebookWithCounts, fmtTime } from '$lib/state.svelte.js';
-  import { getTranscript, updateTranscript, saveCodebook } from '$lib/api.js';
+  import { app, codeColor, codeName, codebookWithCounts, fmtTime } from '$lib/state.svelte.js';
+  import { getTranscript, updateTranscript, saveCodebook, setActiveCodebook } from '$lib/api.js';
 
   let playing = $state(false);
   let progress = $state(0);
@@ -47,13 +47,23 @@
     };
   }
 
-  function getCodeName(codeId) {
-    for (const g of app.codebook) {
-      for (const c of g.children) {
-        if (c.id === codeId) return c.name;
-      }
+  function findCodeInActiveCodebook(codeId) {
+    for (const g of app.codebook) for (const c of g.children) if (c.id === codeId) return true;
+    return false;
+  }
+
+  async function jumpToCodeOrigin(codeId) {
+    const originId = findCodeInActiveCodebook(codeId)
+      ? app.activeCodebookId
+      : app.codeRegistry[codeId]?.codebookId;
+    if (!originId || originId === app.activeCodebookId) return;
+    try {
+      const { activeId, codebook } = await setActiveCodebook(originId);
+      app.activeCodebookId = activeId;
+      app.codebook = codebook;
+    } catch (e) {
+      app.toast(`Could not switch to source codebook: ${e.message}`);
     }
-    return codeId;
   }
 
   function seekToTs(ts) {
@@ -344,17 +354,19 @@
               {#if turn.codes?.length}
                 <div class="turn-codes">
                   {#each turn.codes as codeId}
-                    {@const color = codeColor(app.codebook, codeId)}
+                    {@const color = codeColor(app.codebook, codeId, app.codeRegistry)}
                     {@const isActive = app.activeCode === codeId}
                     <span
                       class="turn-code-badge c{color}"
                       class:active={isActive}
                       onmouseenter={() => (app.activeCode = codeId)}
                       onmouseleave={() => { if (app.activeCode === codeId) app.activeCode = null; }}
+                      onclick={() => jumpToCodeOrigin(codeId)}
+                      title="Switch to this code's codebook"
                       role="mark"
                     >
                       <span class="badge-dot"></span>
-                      {getCodeName(codeId)}
+                      {codeName(app.codebook, codeId, app.codeRegistry)}
                       <button
                         class="badge-remove"
                         onclick={(e) => { e.stopPropagation(); removeCodeFromTurn(turn.id, codeId); }}

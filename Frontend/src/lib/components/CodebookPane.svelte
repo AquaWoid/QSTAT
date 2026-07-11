@@ -1,25 +1,25 @@
 <script>
   import { onMount } from 'svelte';
   import Icon from '$lib/Icon.svelte';
-  import { app, codebookWithCounts } from '$lib/state.svelte.js';
+  import { app, codebookWithCounts, buildCodeRegistry } from '$lib/state.svelte.js';
   import {
     getCodebook, saveCodebook, generateCodebook, generateDeductiveCodebook, getTranscript,
     autoAnnotateTranscript,
-    listCodebooks, setActiveCodebook, renameCodebook, deleteCodebook, mergeCodebooks
+    listCodebooks, setActiveCodebook, renameCodebook, deleteCodebook, mergeCodebooks, getCodebookById
   } from '$lib/api.js';
 
   let codebooks = $state(/** @type {Array<{id:string,name:string,createdAt:string}>} */ ([]));
-  let activeCodebookId = $state(/** @type {string | null} */ (null));
   let cbMenuOpen = $state(false);
   let renamingCodebook = $state(false);
 
-  let activeCodebookName = $derived(codebooks.find((c) => c.id === activeCodebookId)?.name ?? 'Codebook');
+  let activeCodebookName = $derived(codebooks.find((c) => c.id === app.activeCodebookId)?.name ?? 'Codebook');
 
   async function refreshCodebookList() {
     try {
       const { items, activeId } = await listCodebooks();
       codebooks = items;
-      activeCodebookId = activeId;
+      app.activeCodebookId = activeId;
+      app.codeRegistry = await buildCodeRegistry(items, getCodebookById);
     } catch (e) {
       app.toast(`Could not load codebooks: ${e.message}`);
     }
@@ -27,10 +27,10 @@
 
   async function switchCodebook(id) {
     cbMenuOpen = false;
-    if (id === activeCodebookId) return;
+    if (id === app.activeCodebookId) return;
     try {
       const { activeId, codebook } = await setActiveCodebook(id);
-      activeCodebookId = activeId;
+      app.activeCodebookId = activeId;
       app.codebook = codebook;
     } catch (e) {
       app.toast(`Could not switch codebook: ${e.message}`);
@@ -46,11 +46,11 @@
   async function finishRenameCodebook(newName) {
     renamingCodebook = false;
     const name = (newName || '').trim();
-    const current = codebooks.find((c) => c.id === activeCodebookId);
-    if (!name || !activeCodebookId || current?.name === name) return;
+    const current = codebooks.find((c) => c.id === app.activeCodebookId);
+    if (!name || !app.activeCodebookId || current?.name === name) return;
     try {
-      await renameCodebook(activeCodebookId, name);
-      codebooks = codebooks.map((c) => (c.id === activeCodebookId ? { ...c, name } : c));
+      await renameCodebook(app.activeCodebookId, name);
+      codebooks = codebooks.map((c) => (c.id === app.activeCodebookId ? { ...c, name } : c));
     } catch (e) {
       app.toast(`Rename failed: ${e.message}`);
     }
@@ -63,8 +63,9 @@
     try {
       const { items, activeId, codebook } = await deleteCodebook(id);
       codebooks = items;
-      activeCodebookId = activeId;
+      app.activeCodebookId = activeId;
       app.codebook = codebook;
+      app.codeRegistry = await buildCodeRegistry(items, getCodebookById);
     } catch (e2) {
       app.toast(`Delete failed: ${e2.message}`);
     }
@@ -361,7 +362,7 @@
       {#if cbMenuOpen}
         <div class="cb-switcher-dropdown" role="menu">
           {#each codebooks as cb (cb.id)}
-            <div class="cb-switcher-item" class:active={cb.id === activeCodebookId}>
+            <div class="cb-switcher-item" class:active={cb.id === app.activeCodebookId}>
               <button role="menuitem" onclick={() => switchCodebook(cb.id)}>{cb.name}</button>
               <button
                 class="cb-switcher-del"
